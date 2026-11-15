@@ -1,0 +1,54 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "enabled": false
+    },
+    "codebase-memory-mcp": {
+      "command": ["/home/mr/.local/bin/codebase-memory-mcp"],
+      "type": "local"
+    },
+    "deepwiki": {
+      "type": "remote",
+      "url": "http://localhost:4000/deepwiki/mcp",
+      "headers": {
+        "Authorization": "Bearer ${DEEPWIKI_TOKEN}"
+      }
+    }
+  },
+  "plugin": ["@jonathanmorley/opencode-claude-compat"],
+  "provider": {
+    "9router": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "9Router",
+      "options": {
+        "baseURL": "http://localhost:20128/v1",
+        "apiKey": "${ROUTER_API_KEY}"
+      },
+      "models": {
+        "openrouter/deepseek-v4.1-flash": {
+          "name": "openrouter/deepseek-v4.1-flash",
+          "modalities": { "input": ["text", "image"], "output": ["text"] }
+        },
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "modalities": { "input": ["text", "image"], "output": ["text"] }
+        },
+        "openrouter/nvidia/nemotron-3.5-super-vl:free": {
+          "name": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+          "modalities": { "input": ["text", "image"], "output": ["text"] }
+        }
+      }
+    }
+  },
+  "model": "",
+  "agent": {
+    "explorer": {
+      "description": "Fast explorer subagent for codebase exploration",
+      "mode": "subagent",
+      "model": "9router/nvidia/nemotron-3.5-super-vl:free"
+    }
+  }
+}
