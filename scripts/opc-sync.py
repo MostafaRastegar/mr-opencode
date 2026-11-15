@@ -278,6 +278,11 @@ class SyncTool:
             rc = 1
         else:
             print(f"git: {gout}")
+        for mcp in ["codegraph", "codebase-memory-mcp"]:
+            found = shutil.which(mcp) is not None
+            print(f"mcp {mcp}: {'ok' if found else 'MISSING'}")
+            if not found:
+                rc = 1
         print(f"target: {self.target} ({'exists' if self.target.exists() else 'missing'})")
         print(f"staging: {self.staging}")
         try:

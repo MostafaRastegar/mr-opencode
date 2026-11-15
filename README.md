@@ -1,6 +1,6 @@
 # mr-opencode
 
-Central source repository for OpenCode configuration shared across the organization (~150 developers). Synced with a zero-dependency Python tool (stdlib only).
+Central source repository for OpenCode configuration shared across the organization. Synced with a zero-dependency Python tool (stdlib only).
 
 ## Usage (developers)
 
@@ -38,7 +38,15 @@ python3 scripts/opc-sync.py clean --yes
 - Configs: `configs/`
 - Plugins: `plugins/`
 
-## Contributing
+## Prerequisites (MCPs)
+
+The following MCP servers are referenced in `configs/opencode.json`. Install them before syncing:
+
+- **codebase-memory-mcp** — `pip install codebase-memory-mcp` (or download binary)
+- **codegraph** — `cargo install codegraph` (or prebuilt binary)
+- **deepwiki** — optional, remote; set `DEEPWIKI_TOKEN`
+
+Run `python3 scripts/opc-sync.py doctor` to verify.
 
 1. Edit files, open a PR.
 2. CI runs `python3 scripts/opc-sync.py verify`.
