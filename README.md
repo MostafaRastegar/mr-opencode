@@ -23,6 +23,16 @@ python3 scripts/opc-sync.py verify
 python3 scripts/opc-sync.py doctor
 ```
 
+## Commands
+
+| command | purpose |
+|---------|---------|
+| `pull` | Clone/update the repo and sync `agents/`, `skills/`, `commands/` to `~/.agents` and `configs/` to `~/.config/opencode`. Backs up targets before writing. |
+| `status` | Show source/target file counts (`--list` lists source files; `--diff` shows pending add/update/delete/conflict per group). |
+| `clean` | Delete target files that no longer exist in the source. Use `--yes` to skip confirmation. |
+| `verify` | Read-only check that all synced targets match the source with no drift; exits non-zero if drift is found. |
+| `doctor` | Print environment info (python, git, MCP binaries, target paths, write access) for troubleshooting. |
+
 ## Updating
 
 ```bash
@@ -32,10 +42,19 @@ python3 scripts/opc-sync.py clean --yes
 
 ## Catalog
 
-- Agents: `agents/`
-- Skills: `skills/`
-- Commands: `commands/`
-- Configs: `configs/`
+- Agents: `agents/` -> synced to `~/.agents` (shared, harness-agnostic)
+- Skills: `skills/` -> synced to `~/.agents/skills`
+- Commands: `commands/` -> synced to `~/.agents/commands`
+- Configs: `configs/` -> synced to `~/.config/opencode` (opencode-specific)
+
+### `~/.agents` (cross-platform, shared)
+
+`~/.agents` holds shared, harness-agnostic content (agents, skills, commands) so
+it works no matter which harness you use (OpenCode, CLI, IDE, etc.).
+Settings specific to OpenCode live in `~/.config/opencode` and are **not** put
+into `~/.agents`.
+
+On Windows `~/.agents` resolves to `%USERPROFILE%\.agents`.
 - Plugins: `plugins/`
 
 ## Prerequisites (MCPs)

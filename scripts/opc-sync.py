@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""opc-sync: stdlib-only OpenCode configuration sync tool."""
+"""opc-sync: stdlib-only OpenCode configuration sync tool.
+
+Syncs the central mr-opencode repo to one or more local targets:
+  * agents/, skills/, commands/ -> ~/.agents       (harness-agnostic, shared)
+  * configs/                    -> ~/.config/opencode (opencode-specific)
+"""
 
 import argparse
+import datetime
 import hashlib
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 DEFAULT_TARGET = Path(os.environ.get("OPENCODE_CONFIG_DIR", str(Path.home() / ".config" / "opencode")))
+DEFAULT_AGENTS_TARGET = Path.home() / ".agents"
 DEFAULT_STAGING = Path.home() / ".cache" / "opc-sync"
 DEFAULT_REPO = "git@github.com:MostafaRastegar/mr-opencode.git"
 
@@ -30,14 +39,12 @@ def file_hash(p):
     return h.hexdigest()
 
 
-import json
-import re
-
 def strip_jsonc_comments(text):
     # Remove // and /* */ comments (naive but works for config files)
     text = re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
     return text
+
 
 def deep_merge(base, local):
     result = dict(base)
@@ -54,6 +61,8 @@ def deep_merge(base, local):
         else:
             result[k] = v
     return result
+
+
 def collect_files(root):
     out = set()
     if not root.exists():
@@ -68,14 +77,25 @@ def collect_files(root):
 
 class SyncTool:
     def __init__(self, repo_url=DEFAULT_REPO, target=DEFAULT_TARGET,
-                 staging=DEFAULT_STAGING, force=False, dry_run=False, verbose=False):
+                 agents_target=DEFAULT_AGENTS_TARGET, staging=DEFAULT_STAGING,
+                 force=False, dry_run=False, verbose=False):
         self.repo_url = repo_url
         self.target = Path(target).expanduser()
+        self.agents_target = Path(agents_target).expanduser()
         self.staging = Path(staging).expanduser()
         self.force = force
         self.dry_run = dry_run
         self.verbose = verbose
         self._local_source = None
+        # (source subdir in repo, local target dir).
+        # agents/skills/commands go to ~/.agents (harness-agnostic, shared).
+        # configs/ is opencode-specific -> ~/.config/opencode.
+        self.groups = [
+            ("agents", self.agents_target),
+            ("skills", self.agents_target / "skills"),
+            ("commands", self.agents_target / "commands"),
+            ("configs", self.target),
+        ]
 
     def log(self, msg):
         if self.verbose or self.dry_run:
@@ -101,24 +121,26 @@ class SyncTool:
                 return False
         return True
 
-    def backup_target(self):
-        if not self.target.exists():
+    def backup_target(self, target_dir):
+        if not target_dir.exists():
             return None
-        import datetime
         ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        backup = self.target.with_name(self.target.name + f".bak.{ts}")
+        backup = target_dir.with_name(target_dir.name + f".bak.{ts}")
         if self.dry_run:
-            self.log(f"[dry-run] would backup {self.target} -> {backup}")
+            self.log(f"[dry-run] would backup {target_dir} -> {backup}")
             return backup
-        shutil.copytree(self.target, backup)
-        self.log(f"backed up {self.target} -> {backup}")
+        shutil.copytree(target_dir, backup)
+        self.log(f"backed up {target_dir} -> {backup}")
         return backup
 
-    def diff_sets(self):
+    def diff_sets(self, source_subdir="", target_dir=None):
+        target_dir = target_dir or self.target
         src_root = self._local_source or self.staging
-        src_files = collect_files(src_root)
-        tgt_files = collect_files(self.target)
-        manifest = self.target / '.opc-manifest'
+        if source_subdir:
+            src_root = src_root / source_subdir
+        src_files = collect_files(src_root) if src_root.exists() else set()
+        tgt_files = collect_files(target_dir)
+        manifest = target_dir / '.opc-manifest'
         tracked = set()
         if manifest.exists():
             tracked = set(x.strip() for x in manifest.read_text().splitlines() if x.strip())
@@ -128,7 +150,7 @@ class SyncTool:
                 changes.append(("add", rel, "new from source"))
             else:
                 sh = file_hash(src_root / rel)
-                th = file_hash(self.target / rel)
+                th = file_hash(target_dir / rel)
                 if sh != th:
                     if self.force:
                         changes.append(("update", rel, "overwrite"))
@@ -141,12 +163,15 @@ class SyncTool:
                 changes.append(("delete", rel, "removed from source"))
         return changes
 
-    def apply_changes(self, changes):
+    def apply_changes(self, changes, source_subdir="", target_dir=None):
+        target_dir = target_dir or self.target
+        src_root = self._local_source or self.staging
+        if source_subdir:
+            src_root = src_root / source_subdir
         added = updated = deleted = skipped = conflicts = 0
         for action, rel, detail in changes:
-            src_root = self._local_source or self.staging
             src = src_root / rel
-            dst = self.target / rel
+            dst = target_dir / rel
             if action == "add":
                 if self.dry_run:
                     self.log(f"[dry-run] add {rel}")
@@ -200,45 +225,64 @@ class SyncTool:
     def cmd_pull(self):
         if not self.ensure_clone():
             return 1
-        if self.target.exists() and not self.dry_run:
-            self.backup_target()
-        changes = self.diff_sets()
-        if self.verbose:
-            for a, r, d in changes:
-                print(f"{a:8} {r}  ({d})")
-        rc = self.apply_changes(changes)
-        if not self.dry_run and rc == 0:
-            src_root = self._local_source or self.staging
-            files = sorted(collect_files(src_root))
-            manifest = self.target / '.opc-manifest'
-            manifest.write_text("\n".join(files) + "\n")
+        if not self.dry_run:
+            seen = set()
+            for _, target_dir in self.groups:
+                if target_dir in seen:
+                    continue
+                seen.add(target_dir)
+                if target_dir.exists():
+                    self.backup_target(target_dir)
+        rc = 0
+        for source_subdir, target_dir in self.groups:
+            changes = self.diff_sets(source_subdir, target_dir)
+            if self.verbose:
+                for a, r, d in changes:
+                    print(f"{a:8} {source_subdir}/{r}  ({d})")
+            group_rc = self.apply_changes(changes, source_subdir, target_dir)
+            rc = max(rc, group_rc)
+            if not self.dry_run and group_rc == 0:
+                src_root = self._local_source or self.staging
+                if source_subdir:
+                    src_root = src_root / source_subdir
+                files = sorted(collect_files(src_root)) if src_root.exists() else []
+                manifest = target_dir / '.opc-manifest'
+                manifest.write_text("\n".join(files) + "\n")
         return rc
 
     def cmd_status(self, list_items=False, diff=False):
         if not self.ensure_clone():
             return 1
+        src_root = self._local_source or self.staging
         if list_items:
-            for rel in sorted(collect_files(self.staging)):
+            for rel in sorted(collect_files(src_root)):
                 print(rel)
             return 0
         if diff:
-            changes = self.diff_sets()
-            for a, r, d in changes:
-                print(f"{a:8} {r}  ({d})")
+            for source_subdir, target_dir in self.groups:
+                changes = self.diff_sets(source_subdir, target_dir)
+                for a, r, d in changes:
+                    print(f"{a:8} {source_subdir}/{r}  ({d})")
             return 0
-        print(f"source files: {len(collect_files(self.staging))}")
-        print(f"target files: {len(collect_files(self.target))}")
+        print(f"source files: {len(collect_files(src_root))}")
+        for source_subdir, target_dir in self.groups:
+            print(f"target files ({source_subdir} -> {target_dir}): "
+                  f"{len(collect_files(target_dir))}")
         return 0
 
     def cmd_clean(self, yes=False):
         if not self.ensure_clone():
             return 1
-        changes = [c for c in self.diff_sets() if c[0] == "delete"]
+        changes = []
+        for source_subdir, target_dir in self.groups:
+            for c in self.diff_sets(source_subdir, target_dir):
+                if c[0] == "delete":
+                    changes.append((source_subdir, target_dir, c))
         if not changes:
             print("Nothing to clean.")
             return 0
-        for a, r, d in changes:
-            print(f"delete {r}")
+        for source_subdir, target_dir, c in changes:
+            print(f"delete {source_subdir}/{c[1]}")
         if self.dry_run:
             print("[dry-run] no changes applied")
             return 0
@@ -247,8 +291,8 @@ class SyncTool:
             if ans != "y":
                 print("Aborted.")
                 return 0
-        for a, r, d in changes:
-            p = self.target / r
+        for source_subdir, target_dir, c in changes:
+            p = target_dir / c[1]
             try:
                 p.unlink()
             except FileNotFoundError:
@@ -259,12 +303,15 @@ class SyncTool:
     def cmd_verify(self):
         if not self.ensure_clone():
             return 1
-        changes = self.diff_sets()
-        drift = [c for c in changes if c[0] in ("add", "update", "delete", "conflict")]
+        drift = []
+        for source_subdir, target_dir in self.groups:
+            for c in self.diff_sets(source_subdir, target_dir):
+                if c[0] in ("add", "update", "delete", "conflict"):
+                    drift.append((source_subdir, target_dir, c))
         if drift:
             print("DRIFT DETECTED:")
-            for a, r, d in drift:
-                print(f"  {a:8} {r}")
+            for source_subdir, target_dir, c in drift:
+                print(f"  {c[0]:8} {source_subdir}/{c[1]}")
             return 1
         print("OK: no drift.")
         return 0
@@ -284,6 +331,7 @@ class SyncTool:
             if not found:
                 rc = 1
         print(f"target: {self.target} ({'exists' if self.target.exists() else 'missing'})")
+        print(f"agents target: {self.agents_target} ({'exists' if self.agents_target.exists() else 'missing'})")
         print(f"staging: {self.staging}")
         try:
             self.staging.parent.mkdir(parents=True, exist_ok=True)
@@ -300,7 +348,10 @@ class SyncTool:
 def build_parser():
     p = argparse.ArgumentParser(prog="opc-sync", description="OpenCode config sync (stdlib only)")
     p.add_argument("--repo", default=DEFAULT_REPO)
-    p.add_argument("--target", default=str(DEFAULT_TARGET))
+    p.add_argument("--target", default=str(DEFAULT_TARGET),
+                   help="opencode config target dir (default ~/.config/opencode)")
+    p.add_argument("--agents-target", default=str(DEFAULT_AGENTS_TARGET),
+                   help="shared agents dir (default ~/.agents)")
     p.add_argument("--staging", default=str(DEFAULT_STAGING))
     p.add_argument("--force", action="store_true")
     p.add_argument("--dry-run", action="store_true")
@@ -331,7 +382,8 @@ def build_parser():
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-    tool = SyncTool(repo_url=args.repo, target=args.target, staging=args.staging,
+    tool = SyncTool(repo_url=args.repo, target=args.target,
+                    agents_target=args.agents_target, staging=args.staging,
                     force=args.force, dry_run=args.dry_run, verbose=args.verbose)
     if args.cmd == "pull":
         return tool.cmd_pull()
