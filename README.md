@@ -5,7 +5,7 @@ Central source repository for OpenCode configuration shared across the organizat
 ## Usage (developers)
 
 ```bash
-python3 <(curl -fsSL https://raw.githubusercontent.com/MostafaRastegar/mr-opencode/main/scripts/opc-sync.py) --repo git@github.com:MostafaRastegar/mr-opencode.git pull
+python3 <(curl -fsSL https://raw.githubusercontent.com/MostafaRastegar/mr-opencode/main/dev/scripts/opc-sync.py) --repo git@github.com:MostafaRastegar/mr-opencode.git pull
 ```
 
 Or clone and run:
@@ -13,14 +13,14 @@ Or clone and run:
 ```bash
 git clone git@github.com:MostafaRastegar/mr-opencode.git ~/opencode-config
 cd ~/opencode-config
-python3 scripts/opc-sync.py pull
+python3 dev/scripts/opc-sync.py pull
 ```
 
 Verify:
 
 ```bash
-python3 scripts/opc-sync.py verify
-python3 scripts/opc-sync.py doctor
+python3 dev/scripts/opc-sync.py verify
+python3 dev/scripts/opc-sync.py doctor
 ```
 
 ## Commands
@@ -53,7 +53,7 @@ Example:
 
 ```bash
 export ROUTER_API_KEY="sk-123..."
-python3 scripts/opc-sync.py pull
+python3 dev/scripts/opc-sync.py pull
 ```
 
 ## Pre-push verification hook
@@ -61,10 +61,10 @@ python3 scripts/opc-sync.py pull
 A zero-dependency git `pre-push` hook runs `tests/test_opc_sync.py` and `opc-sync.py verify` on every `git push`, blocking the push if tests fail or config drift is detected. Install once after cloning:
 
 ```bash
-python3 scripts/install-git-hooks.py
+python3 dev/scripts/install-git-hooks.py
 ```
 
-The hook is sourced from `scripts/git-hooks/pre-push` and copied into `.git/hooks/`. No npm / node_modules required — stdlib Python only.
+The hook is sourced from `dev/scripts/git-hooks/pre-push` and copied into `.git/hooks/`. No npm / node_modules required — stdlib Python only.
 
 ## HTTP skill catalogs
 
@@ -85,26 +85,43 @@ Example `configs/opencode.jsonc`:
 ## Updating
 
 ```bash
-python3 scripts/opc-sync.py pull
-python3 scripts/opc-sync.py clean --yes
+python3 dev/scripts/opc-sync.py pull
+python3 dev/scripts/opc-sync.py clean --yes
 ```
 
 ## Catalog
 
-- Agents: `agents/` -> synced to `~/.agents` (shared, harness-agnostic)
-- Skills: `skills/` -> synced to `~/.agents/skills`
-- Commands: `commands/` -> synced to `~/.agents/commands`
-- Configs: `configs/` -> synced to `~/.config/opencode` (opencode-specific)
+- Agents: `product/agents/` -> synced to `~/.agents` (shared, harness-agnostic)
+- Skills: `product/skills/` -> synced to `~/.agents/skills`
+- Commands: `product/commands/` -> synced to `~/.agents/commands`
+- Plugins: `product/plugins/` -> synced to `~/.agents/plugins` (shared, harness-agnostic)
+- Workflows: `product/workflows/` -> synced to `~/.agents/workflows` (shared, harness-agnostic)
+- Configs: `product/configs/` -> synced to `~/.config/opencode` (opencode-specific)
 
 ### `~/.agents` (cross-platform, shared)
 
-`~/.agents` holds shared, harness-agnostic content (agents, skills, commands) so
+`~/.agents` holds shared, harness-agnostic content (agents, skills, commands, plugins, workflows) so
 it works no matter which harness you use (OpenCode, CLI, IDE, etc.).
 Settings specific to OpenCode live in `~/.config/opencode` and are **not** put
 into `~/.agents`.
 
 On Windows `~/.agents` resolves to `%USERPROFILE%\.agents`.
-- Plugins: `plugins/`
+
+## Repo layout
+
+- `product/` — configuration that gets synced to end-user machines:
+  - `product/agents/` -> `~/.agents` (shared, harness-agnostic)
+  - `product/skills/` -> `~/.agents/skills`
+  - `product/commands/` -> `~/.agents/commands`
+  - `product/configs/` -> `~/.config/opencode` (opencode-specific)
+- `dev/` — development tooling for this repo itself:
+  - `dev/scripts/opc-sync/` — the sync tool (split into modules)
+  - `dev/scripts/opc-sync.py` — backward-compatible shim
+  - `dev/scripts/setup-opencode.sh` / `.ps1` — installer scripts
+  - `dev/tests/` — unit tests
+- `.github/`, `workflows/`, `plugins/` — CI and optional plugins
+
+- Plugins: `dev/plugins/`
 
 ## Prerequisites (MCPs)
 
@@ -114,10 +131,10 @@ The following MCP servers are referenced in `configs/opencode.json`. Install the
 - **codegraph** — `cargo install codegraph` (or prebuilt binary)
 - **deepwiki** — optional, remote; set `DEEPWIKI_TOKEN`
 
-Run `python3 scripts/opc-sync.py doctor` to verify.
+Run `python3 dev/scripts/opc-sync.py doctor` to verify.
 
 1. Edit files, open a PR.
-2. CI runs `python3 scripts/opc-sync.py verify`.
+2. CI runs `python3 dev/scripts/opc-sync.py verify`.
 3. Developers pull updates.
 
 ## Rollout

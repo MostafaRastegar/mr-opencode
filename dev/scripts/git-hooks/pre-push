@@ -22,11 +22,11 @@ def main() -> int:
     ok = True
 
     print("=== pre-push hook: running unit tests ===")
-    if run([sys.executable, "tests/test_opc_sync.py"], cwd=repo_root) != 0:
+    if run([sys.executable, "dev/tests/test_opc_sync.py"], cwd=repo_root) != 0:
         ok = False
 
     print("=== pre-push hook: verifying config drift ===")
-    if run([sys.executable, "scripts/opc-sync.py", "verify"], cwd=repo_root) != 0:
+    if run([sys.executable, "dev/scripts/opc-sync.py", "verify"], cwd=repo_root) != 0:
         ok = False
 
     if ok:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Install git hooks from scripts/git-hooks into .git/hooks.
+"""Install git hooks from dev/scripts/git-hooks into .git/hooks.
 
 Run once after cloning:
 
-    python3 scripts/install-git-hooks.py
+    python3 dev/scripts/install-git-hooks.py
 """
 import shutil
 import stat
@@ -11,8 +11,8 @@ from pathlib import Path
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parents[1]  # scripts -> repo root
-    hooks_src = repo_root / "scripts" / "git-hooks"
+    repo_root = Path(__file__).resolve().parents[2]  # dev/scripts/ -> repo root
+    hooks_src = repo_root / "dev" / "scripts" / "git-hooks"
     git_dir = repo_root / ".git"
 
     if not git_dir.is_dir():

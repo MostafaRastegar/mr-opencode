@@ -1,113 +1,19 @@
-#!/usr/bin/env python3
-"""opc-sync: stdlib-only OpenCode configuration sync tool.
+"""Core SyncTool class for opc-sync (stdlib only)."""
 
-Syncs the central mr-opencode repo to one or more local targets:
-  * agents/, skills/, commands/ -> ~/.agents       (harness-agnostic, shared)
-  * configs/                    -> ~/.config/opencode (opencode-specific)
-"""
-
-import argparse
 import datetime
-import difflib
-import hashlib
 import json
-import os
-import re
 import shutil
-import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 
-DEFAULT_TARGET = Path(os.environ.get("OPENCODE_CONFIG_DIR", str(Path.home() / ".config" / "opencode")))
-DEFAULT_AGENTS_TARGET = Path.home() / ".agents"
-DEFAULT_STAGING = Path.home() / ".cache" / "opc-sync"
-DEFAULT_REPO = "git@github.com:MostafaRastegar/mr-opencode.git"
-
-
-def run_git(args, cwd=None):
-    try:
-        r = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
-        return r.returncode, r.stdout.strip(), r.stderr.strip()
-    except FileNotFoundError:
-        return 127, "", "git not found"
-
-
-def file_hash(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def strip_jsonc_comments(text):
-    # Remove // and /* */ comments (naive but works for config files)
-    text = re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    return text
-
-
-def deep_merge(base, local):
-    result = dict(base)
-    for k, v in local.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-            result[k] = deep_merge(result[k], v)
-        elif k in result and isinstance(result[k], list) and isinstance(v, list):
-            # union preserving order
-            merged = list(result[k])
-            for item in v:
-                if item not in merged:
-                    merged.append(item)
-            result[k] = merged
-        else:
-            result[k] = v
-    return result
-
-
-def collect_files(root):
-    out = set()
-    if not root.exists():
-        return out
-    for p in root.rglob("*"):
-        if any(part == ".git" for part in p.parts):
-            continue
-        if p.is_file():
-            out.add(p.relative_to(root).as_posix())
-    return out
-
-
-def atomic_write_text(path, content):
-    """Write content atomically: write to temp file in same dir, then os.replace."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp." + str(os.getpid()))
-    tmp.write_text(content, encoding="utf-8")
-    os.replace(tmp, path)
-
-
-def substitute_env(text):
-    """Replace ${VAR} and $VAR with environment values. Missing vars left unchanged."""
-    def repl(m):
-        var = m.group(1) or m.group(2)
-        return os.environ.get(var, m.group(0))
-    return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9]*)", repl, text)
-
-
-def content_diff(src_path, dst_path, label_a="source", label_b="target"):
-    """Return unified diff string between two text files, or '' if identical/binary."""
-    try:
-        a = src_path.read_text(encoding="utf-8").splitlines(keepends=True)
-        b = dst_path.read_text(encoding="utf-8").splitlines(keepends=True)
-    except Exception:
-        return ""
-    diff = difflib.unified_diff(a, b, fromfile=label_a, tofile=label_b, lineterm="")
-    return "".join(diff)
+from .catalog import fetch_skill_catalogs
+from .config import deep_merge, strip_jsonc_comments, substitute_env
+from .fs import atomic_write_text, collect_files, content_diff, file_hash
+from .git import ensure_clone
 
 
 class SyncTool:
-    def __init__(self, repo_url=DEFAULT_REPO, target=DEFAULT_TARGET,
-                 agents_target=DEFAULT_AGENTS_TARGET, staging=DEFAULT_STAGING,
+    def __init__(self, repo_url, target, agents_target, staging,
                  force=False, dry_run=False, verbose=False):
         self.repo_url = repo_url
         self.target = Path(target).expanduser()
@@ -119,12 +25,14 @@ class SyncTool:
         self._local_source = None
         self.errors = []
         # (source subdir in repo, local target dir).
-        # agents/skills/commands go to ~/.agents (harness-agnostic, shared).
+        # agents/skills/commands/plugins/workflows go to ~/.agents (harness-agnostic, shared).
         # configs/ is opencode-specific -> ~/.config/opencode.
         self.groups = [
             ("agents", self.agents_target),
             ("skills", self.agents_target / "skills"),
             ("commands", self.agents_target / "commands"),
+            ("plugins", self.agents_target / "plugins"),
+            ("workflows", self.agents_target / "workflows"),
             ("configs", self.target),
         ]
 
@@ -133,29 +41,12 @@ class SyncTool:
             print(msg)
 
     def ensure_clone(self):
-        rp = Path(self.repo_url)
-        if rp.exists() and rp.is_dir():
-            self._local_source = rp.resolve()
-            return True
-        if (self.staging / ".git").exists():
-            rc, out, err = run_git(["pull", "--ff-only"], cwd=self.staging)
-            if rc != 0:
-                print(f"git pull failed: {err}", file=sys.stderr)
-                return False
-        else:
-            self.staging.parent.mkdir(parents=True, exist_ok=True)
-            if self.staging.exists():
-                shutil.rmtree(self.staging)
-            rc, out, err = run_git(["clone", self.repo_url, str(self.staging)])
-            if rc != 0:
-                print(f"git clone failed: {err}", file=sys.stderr)
-                return False
-        return True
+        self._local_source = ensure_clone(self.staging, self.repo_url)
+        return self._local_source is not None
 
     def backup_target(self, target_dir):
         if not target_dir.exists():
             return None
-        import datetime
         ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         backup = target_dir.with_name(target_dir.name + f".bak.{ts}")
         if self.dry_run:
@@ -195,6 +86,20 @@ class SyncTool:
                 changes.append(("delete", rel, "removed from source"))
         return changes
 
+    def _write_json_file(self, src, dst):
+        """Write a JSON/JSONC file with env substitution, comment stripping, deep-merge."""
+        src_text = substitute_env(strip_jsonc_comments(src.read_text()))
+        json.loads(src_text)  # validate source JSON
+        if dst.exists():
+            dst_data = json.loads(substitute_env(strip_jsonc_comments(dst.read_text())))
+            merged = deep_merge(json.loads(src_text), dst_data)
+            atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
+        else:
+            atomic_write_text(dst, src_text)
+
+    def _write_text_file(self, src, dst):
+        atomic_write_text(dst, substitute_env(src.read_text(encoding="utf-8")))
+
     def apply_changes(self, changes, source_subdir="", target_dir=None):
         target_dir = target_dir or self.target
         src_root = self._local_source or self.staging
@@ -211,19 +116,12 @@ class SyncTool:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     if rel.endswith((".json", ".jsonc")):
                         try:
-                            src_text = substitute_env(strip_jsonc_comments(src.read_text()))
-                            json.loads(src_text)
-                            if dst.exists():
-                                dst_data = json.loads(substitute_env(strip_jsonc_comments(dst.read_text())))
-                                merged = deep_merge(json.loads(src_text), dst_data)
-                                atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
-                            else:
-                                atomic_write_text(dst, src_text)
+                            self._write_json_file(src, dst)
                         except Exception as e:
                             self.errors.append(f"{rel}: invalid JSON source ({e}); skipped")
                             continue
                     else:
-                        atomic_write_text(dst, substitute_env(src.read_text(encoding="utf-8")))
+                        self._write_text_file(src, dst)
                 added += 1
             elif action == "update":
                 if self.dry_run:
@@ -232,19 +130,12 @@ class SyncTool:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     if rel.endswith((".json", ".jsonc")):
                         try:
-                            src_text = substitute_env(strip_jsonc_comments(src.read_text()))
-                            json.loads(src_text)
-                            if dst.exists():
-                                dst_data = json.loads(substitute_env(strip_jsonc_comments(dst.read_text())))
-                                merged = deep_merge(json.loads(src_text), dst_data)
-                                atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
-                            else:
-                                atomic_write_text(dst, src_text)
+                            self._write_json_file(src, dst)
                         except Exception as e:
                             self.errors.append(f"{rel}: invalid JSON source ({e}); skipped")
                             continue
                     else:
-                        atomic_write_text(dst, substitute_env(src.read_text(encoding="utf-8")))
+                        self._write_text_file(src, dst)
                 updated += 1
             elif action == "delete":
                 if self.dry_run:
@@ -267,63 +158,6 @@ class SyncTool:
                 print(f"ERROR: {e}", file=sys.stderr)
             return 1
         return 0 if conflicts == 0 else 1
-
-    def fetch_skill_catalogs(self):
-        """Download skills from HTTP catalog URLs listed in configs/opencode.jsonc."""
-        src_root = self._local_source or self.staging
-        cfg = src_root / "configs" / "opencode.jsonc"
-        if not cfg.exists():
-            return 0
-        try:
-            data = json.loads(strip_jsonc_comments(cfg.read_text(encoding="utf-8")))
-        except Exception:
-            return 0
-        urls = data.get("skills", [])
-        if not urls:
-            return 0
-        skills_root = self.agents_target / "skills"
-        fetched = 0
-        for base_url in urls:
-            base_url = base_url.rstrip("/")
-            index_url = base_url + "/index.json"
-            try:
-                with urllib.request.urlopen(index_url, timeout=15) as resp:
-                    catalog = json.loads(resp.read().decode("utf-8"))
-            except Exception as e:
-                print(f"skill catalog fetch failed ({index_url}): {e}", file=sys.stderr)
-                continue
-            for skill in catalog.get("skills", []):
-                skill_id = skill.get("id")
-                version = skill.get("version", "")
-                if not skill_id:
-                    continue
-                skill_dir = skills_root / skill_id
-                for f in skill.get("files", []):
-                    dest = f.get("dest")
-                    url = f.get("url")
-                    if not dest or not url:
-                        continue
-                    dst = skill_dir / dest
-                    if self.dry_run:
-                        self.log(f"[dry-run] fetch skill {skill_id}/{dest}")
-                        continue
-                    try:
-                        with urllib.request.urlopen(url, timeout=30) as resp:
-                            data_bytes = resp.read()
-                        dst.parent.mkdir(parents=True, exist_ok=True)
-                        atomic_write_text(dst, data_bytes.decode("utf-8"))
-                        fetched += 1
-                    except Exception as e:
-                        print(f"skill fetch failed ({url}): {e}", file=sys.stderr)
-                        continue
-                if version and not self.dry_run:
-                    try:
-                        (skill_dir / "VERSION").write_text(version + "\n", encoding="utf-8")
-                    except Exception:
-                        pass
-        if fetched:
-            print(f"Fetched {fetched} skill file(s) from HTTP catalogs.")
-        return 0
 
     def cmd_pull(self):
         if not self.ensure_clone():
@@ -352,7 +186,8 @@ class SyncTool:
                 manifest = target_dir / '.opc-manifest'
                 manifest.write_text("\n".join(files) + "\n")
         if not self.dry_run:
-            self.fetch_skill_catalogs()
+            fetch_skill_catalogs(self._local_source or self.staging,
+                                 self.agents_target, self.dry_run)
         if self.errors:
             rc = 1
         return rc
@@ -457,6 +292,7 @@ class SyncTool:
     def cmd_doctor(self):
         rc = 0
         print(f"python: {sys.version.split()[0]}")
+        from .git import run_git
         grc, gout, gerr = run_git(["--version"])
         if grc != 0:
             print("git: MISSING")
@@ -481,62 +317,3 @@ class SyncTool:
             print(f"write access: FAIL ({e})")
             rc = 1
         return rc
-
-
-def build_parser():
-    p = argparse.ArgumentParser(prog="opc-sync", description="OpenCode config sync (stdlib only)")
-    p.add_argument("--repo", default=DEFAULT_REPO)
-    p.add_argument("--target", default=str(DEFAULT_TARGET),
-                   help="opencode config target dir (default ~/.config/opencode)")
-    p.add_argument("--agents-target", default=str(DEFAULT_AGENTS_TARGET),
-                   help="shared agents dir (default ~/.agents)")
-    p.add_argument("--staging", default=str(DEFAULT_STAGING))
-    p.add_argument("--force", action="store_true")
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--verbose", action="store_true")
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    sp = sub.add_parser("pull")
-    sp.set_defaults(func=lambda t: t.cmd_pull())
-
-    sp = sub.add_parser("status")
-    sp.add_argument("--list", action="store_true")
-    sp.add_argument("--diff", action="store_true")
-    sp.add_argument("--json", action="store_true", help="machine-readable JSON output")
-    sp.set_defaults(func=lambda t, a: t.cmd_status(list_items=a.list, diff=a.diff, json_out=a.json))
-
-    sp = sub.add_parser("clean")
-    sp.add_argument("--yes", action="store_true")
-    sp.set_defaults(func=lambda t, a: t.cmd_clean(yes=a.yes))
-
-    sp = sub.add_parser("verify")
-    sp.add_argument("--dry-run", action="store_true", help="show what would be verified without running")
-    sp.set_defaults(func=lambda t, a: t.cmd_verify(dry_run=a.dry_run))
-
-    sp = sub.add_parser("doctor")
-    sp.set_defaults(func=lambda t: t.cmd_doctor())
-
-    return p
-
-
-def main(argv=None):
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    tool = SyncTool(repo_url=args.repo, target=args.target,
-                    agents_target=args.agents_target, staging=args.staging,
-                    force=args.force, dry_run=args.dry_run, verbose=args.verbose)
-    if args.cmd == "pull":
-        return tool.cmd_pull()
-    if args.cmd == "status":
-        return tool.cmd_status(list_items=args.list, diff=args.diff, json_out=args.json)
-    if args.cmd == "clean":
-        return tool.cmd_clean(yes=args.yes)
-    if args.cmd == "verify":
-        return tool.cmd_verify(dry_run=args.dry_run)
-    if args.cmd == "doctor":
-        return tool.cmd_doctor()
-    return 2
-
-
-if __name__ == "__main__":
-    sys.exit(main())

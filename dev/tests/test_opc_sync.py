@@ -1,46 +1,49 @@
 #!/usr/bin/env python3
-"""Unit tests for opc-sync.py (stdlib only)."""
+"""Unit tests for opc-sync (stdlib only)."""
 
 import hashlib
 import json
 import os
-import shutil
-import tempfile
 import unittest
 from pathlib import Path
 
-# Import the module under test
-import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "opc_sync", str(Path(__file__).resolve().parent.parent / "scripts" / "opc-sync.py")
+# Import the opc_sync package under dev/scripts/
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from opc_sync import (
+    SyncTool,
+    file_hash,
+    strip_jsonc_comments,
+    deep_merge,
+    collect_files,
 )
-opc_sync = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(opc_sync)
 
 
 class TestHelpers(unittest.TestCase):
     def test_file_hash(self):
+        import tempfile
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(b"hello world")
             path = f.name
         try:
             expected = hashlib.sha256(b"hello world").hexdigest()
-            self.assertEqual(opc_sync.file_hash(path), expected)
+            self.assertEqual(file_hash(path), expected)
         finally:
             os.unlink(path)
 
     def test_file_hash_empty(self):
+        import tempfile
         with tempfile.NamedTemporaryFile(delete=False) as f:
             path = f.name
         try:
             expected = hashlib.sha256(b"").hexdigest()
-            self.assertEqual(opc_sync.file_hash(path), expected)
+            self.assertEqual(file_hash(path), expected)
         finally:
             os.unlink(path)
 
     def test_strip_jsonc_comments(self):
         text = '{"a": 1} // line comment\n{"b": 2} /* block */'
-        result = opc_sync.strip_jsonc_comments(text)
+        result = strip_jsonc_comments(text)
         self.assertNotIn("//", result)
         self.assertNotIn("/*", result)
         self.assertNotIn("*/", result)
@@ -48,7 +51,7 @@ class TestHelpers(unittest.TestCase):
     def test_deep_merge_dicts(self):
         base = {"a": 1, "b": {"x": 1, "y": 2}}
         local = {"b": {"y": 99, "z": 3}, "c": 4}
-        merged = opc_sync.deep_merge(base, local)
+        merged = deep_merge(base, local)
         self.assertEqual(merged["a"], 1)
         self.assertEqual(merged["b"]["x"], 1)
         self.assertEqual(merged["b"]["y"], 99)
@@ -58,10 +61,11 @@ class TestHelpers(unittest.TestCase):
     def test_deep_merge_lists_union(self):
         base = {"a": [1, 2]}
         local = {"a": [2, 3]}
-        merged = opc_sync.deep_merge(base, local)
+        merged = deep_merge(base, local)
         self.assertEqual(merged["a"], [1, 2, 3])
 
     def test_collect_files(self):
+        import tempfile
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "a.txt").write_text("a")
@@ -69,7 +73,7 @@ class TestHelpers(unittest.TestCase):
             (root / "sub" / "b.txt").write_text("b")
             (root / ".git").mkdir()
             (root / ".git" / "config").write_text("c")
-            files = opc_sync.collect_files(root)
+            files = collect_files(root)
             self.assertIn("a.txt", files)
             self.assertIn("sub/b.txt", files)
             self.assertNotIn(".git/config", files)
@@ -77,13 +81,16 @@ class TestHelpers(unittest.TestCase):
 
 class TestSyncToolInit(unittest.TestCase):
     def test_defaults(self):
-        tool = opc_sync.SyncTool()
+        tool = SyncTool(repo_url="x", target="~/.config/opencode",
+                        agents_target="~/.agents", staging="~/.cache/opc-sync")
         self.assertEqual(str(tool.agents_target), str(Path.home() / ".agents"))
-        self.assertEqual(len(tool.groups), 4)
+        self.assertEqual(len(tool.groups), 6)
         self.assertEqual(tool.groups[0], ("agents", tool.agents_target))
         self.assertEqual(tool.groups[1], ("skills", tool.agents_target / "skills"))
         self.assertEqual(tool.groups[2], ("commands", tool.agents_target / "commands"))
-        self.assertEqual(tool.groups[3], ("configs", tool.target))
+        self.assertEqual(tool.groups[3], ("plugins", tool.agents_target / "plugins"))
+        self.assertEqual(tool.groups[4], ("workflows", tool.agents_target / "workflows"))
+        self.assertEqual(tool.groups[5], ("configs", tool.target))
 
 
 if __name__ == "__main__":

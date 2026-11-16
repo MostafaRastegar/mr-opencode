@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${1:-git@github.com:MostafaRastegar/mr-opencode.git}"
-TOOL_URL="${TOOL_URL:-https://raw.githubusercontent.com/MostafaRastegar/mr-opencode/main/scripts/opc-sync.py}"
+TOOL_URL="${TOOL_URL:-https://raw.githubusercontent.com/MostafaRastegar/mr-opencode/main/dev/scripts/opc-sync.py}"
 
 # Ensure python3
 if ! command -v python3 >/dev/null 2>&1; then

@@ -1,0 +1,28 @@
+{
+  "name": "code-reviewer",
+  "version": "1.0.0",
+  "description": "Auto-invokes the code-reviewer skill on PR-related file changes.",
+  "hooks": {
+    "pre-push": [
+      "skills/code-reviewed:review"
+    ]
+  },
+  "config": {
+    "review_on_files": [
+      "*.py",
+      "*.ts",
+      "*.tsx",
+      "*.js",
+      "*.jsx",
+      "*.go",
+      "*.rs",
+      "*.java",
+      "*.md",
+      "*.yaml",
+      "*.json"
+    ],
+    "require_approval": false,
+    "max_findings": 10
+  },
+  "enabled": true
+}

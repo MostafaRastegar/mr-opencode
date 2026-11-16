@@ -1,11 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "codegraph": {
-      "type": "local",
-      "command": ["codegraph", "serve", "--mcp"],
-      "enabled": false
-    },
     "codebase-memory-mcp": {
       "command": ["/home/mr/.local/bin/codebase-memory-mcp"],
       "type": "local"
