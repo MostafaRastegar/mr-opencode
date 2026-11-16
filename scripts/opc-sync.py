@@ -433,7 +433,12 @@ class SyncTool:
         print(f"Cleaned {len(changes)} item(s).")
         return 0
 
-    def cmd_verify(self):
+    def cmd_verify(self, dry_run=False):
+        if dry_run:
+            print("[dry-run] would verify drift across all sync groups")
+            for source_subdir, target_dir in self.groups:
+                print(f"  verify {source_subdir} -> {target_dir}")
+            return 0
         if not self.ensure_clone():
             return 1
         drift = []
@@ -505,7 +510,8 @@ def build_parser():
     sp.set_defaults(func=lambda t, a: t.cmd_clean(yes=a.yes))
 
     sp = sub.add_parser("verify")
-    sp.set_defaults(func=lambda t: t.cmd_verify())
+    sp.add_argument("--dry-run", action="store_true", help="show what would be verified without running")
+    sp.set_defaults(func=lambda t, a: t.cmd_verify(dry_run=a.dry_run))
 
     sp = sub.add_parser("doctor")
     sp.set_defaults(func=lambda t: t.cmd_doctor())
@@ -526,7 +532,7 @@ def main(argv=None):
     if args.cmd == "clean":
         return tool.cmd_clean(yes=args.yes)
     if args.cmd == "verify":
-        return tool.cmd_verify()
+        return tool.cmd_verify(dry_run=args.dry_run)
     if args.cmd == "doctor":
         return tool.cmd_doctor()
     return 2

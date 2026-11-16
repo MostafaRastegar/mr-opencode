@@ -1,0 +1,31 @@
+name: Verify OpenCode Config
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run unit tests
+        run: python3 tests/test_opc_sync.py -v
+
+      - name: Verify config drift (dry-run)
+        run: python3 scripts/opc-sync.py verify --dry-run
+
+      - name: Verify config drift (full)
+        run: python3 scripts/opc-sync.py verify
+
+      - name: Status diff (CI-friendly JSON)
+        run: python3 scripts/opc-sync.py status --diff --json
