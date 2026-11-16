@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+*.env
+*.bak.*
+# opc-sync staging/backups
+.cache/opc-sync/
