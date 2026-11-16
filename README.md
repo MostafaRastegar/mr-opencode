@@ -28,7 +28,7 @@ python3 scripts/opc-sync.py doctor
 | command | purpose |
 |---------|---------|
 | `pull` | Clone/update the repo and sync `agents/`, `skills/`, `commands/` to `~/.agents` and `configs/` to `~/.config/opencode`. Backs up targets before writing. |
-| `status` | Show source/target file counts (`--list` lists source files; `--diff` shows pending add/update/delete/conflict per group). |
+| `status` | Show source/target file counts (`--list` lists source files; `--diff` shows pending add/update/delete/conflict per group with content diffs; `--json` emits machine-readable JSON). |
 | `clean` | Delete target files that no longer exist in the source. Use `--yes` to skip confirmation. |
 | `verify` | Read-only check that all synced targets match the source with no drift; exits non-zero if drift is found. |
 | `doctor` | Print environment info (python, git, MCP binaries, target paths, write access) for troubleshooting. |
@@ -44,6 +44,33 @@ python3 scripts/opc-sync.py doctor
 | `--force` | off | Overwrite local conflicts instead of reporting them. |
 | `--dry-run` | off | Show what would change without writing anything. |
 | `--verbose` | off | Print per-file add/update/skip/conflict details. |
+
+## Environment variable substitution
+
+Values in `${VAR}` or `$VAR` form inside synced config files (`.json` / `.jsonc`) are replaced with the matching environment variable before writing. If the variable is unset, the placeholder is left unchanged. This lets each developer inject their own API keys / endpoints without editing shared files.
+
+Example:
+
+```bash
+export ROUTER_API_KEY="sk-123..."
+python3 scripts/opc-sync.py pull
+```
+
+## HTTP skill catalogs
+
+`pull` also downloads skills listed under `skills` in `configs/opencode.jsonc` from HTTP catalog URLs. Each catalog's `index.json` describes skill `id`, `version`, and `files` (with `dest` and `url`). Files are written to `~/.agents/skills/<id>/`, and a `VERSION` marker is created when a version is provided.
+
+Example `configs/opencode.jsonc`:
+
+```jsonc
+{
+  "skills": ["https://example.com/opencode/skills/"]
+}
+```
+
+## CI-friendly output
+
+`status --diff --json` emits machine-readable JSON listing every pending change per group (add/update/delete/conflict) with unified-content diffs, suitable for CI pipelines.
 
 ## Updating
 
