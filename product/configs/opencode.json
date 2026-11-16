@@ -13,7 +13,10 @@
       }
     }
   },
-  "plugin": ["@jonathanmorley/opencode-claude-compat"],
+  "plugins": [
+    "@jonathanmorley/opencode-claude-compat",
+    "./plugins/code-reviewer"
+  ],
   "provider": {
     "9router": {
       "npm": "@ai-sdk/openai-compatible",

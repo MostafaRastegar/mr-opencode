@@ -42,11 +42,13 @@ class TestHelpers(unittest.TestCase):
             os.unlink(path)
 
     def test_strip_jsonc_comments(self):
-        text = '{"a": 1} // line comment\n{"b": 2} /* block */'
+        text = '{"a": 1} // line comment\n{"b": 2} /* block */\n{"c": "https://x.com//y"}'
         result = strip_jsonc_comments(text)
-        self.assertNotIn("//", result)
-        self.assertNotIn("/*", result)
+        self.assertNotIn("// line comment", result)
+        self.assertNotIn("/* block */", result)
         self.assertNotIn("*/", result)
+        # URLs inside strings must be preserved intact
+        self.assertIn("https://x.com//y", result)
 
     def test_deep_merge_dicts(self):
         base = {"a": 1, "b": {"x": 1, "y": 2}}
@@ -85,12 +87,12 @@ class TestSyncToolInit(unittest.TestCase):
                         agents_target="~/.agents", staging="~/.cache/opc-sync")
         self.assertEqual(str(tool.agents_target), str(Path.home() / ".agents"))
         self.assertEqual(len(tool.groups), 6)
-        self.assertEqual(tool.groups[0], ("agents", tool.agents_target))
-        self.assertEqual(tool.groups[1], ("skills", tool.agents_target / "skills"))
-        self.assertEqual(tool.groups[2], ("commands", tool.agents_target / "commands"))
-        self.assertEqual(tool.groups[3], ("plugins", tool.agents_target / "plugins"))
-        self.assertEqual(tool.groups[4], ("workflows", tool.agents_target / "workflows"))
-        self.assertEqual(tool.groups[5], ("configs", tool.target))
+        self.assertEqual(tool.groups[0], ("product/agents", tool.target / "agents"))
+        self.assertEqual(tool.groups[1], ("product/skills", tool.agents_target / "skills"))
+        self.assertEqual(tool.groups[2], ("product/commands", tool.agents_target / "commands"))
+        self.assertEqual(tool.groups[3], ("product/plugins", tool.target / "plugins"))
+        self.assertEqual(tool.groups[4], ("product/workflows", tool.agents_target / "workflows"))
+        self.assertEqual(tool.groups[5], ("product/configs", tool.target))
 
 
 if __name__ == "__main__":

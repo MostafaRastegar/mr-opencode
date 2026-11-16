@@ -1,6 +1,7 @@
 """Core SyncTool class for opc-sync (stdlib only)."""
 
 import datetime
+import hashlib
 import json
 import shutil
 import sys
@@ -25,15 +26,16 @@ class SyncTool:
         self._local_source = None
         self.errors = []
         # (source subdir in repo, local target dir).
-        # agents/skills/commands/plugins/workflows go to ~/.agents (harness-agnostic, shared).
-        # configs/ is opencode-specific -> ~/.config/opencode.
+        # product/agents/skills/commands/workflows go to ~/.agents (harness-agnostic, shared).
+        # product/plugins/ is opencode-specific -> ~/.config/opencode/plugins.
+        # product/configs/ is opencode-specific -> ~/.config/opencode.
         self.groups = [
-            ("agents", self.agents_target),
-            ("skills", self.agents_target / "skills"),
-            ("commands", self.agents_target / "commands"),
-            ("plugins", self.agents_target / "plugins"),
-            ("workflows", self.agents_target / "workflows"),
-            ("configs", self.target),
+            ("product/agents", self.target / "agents"),
+            ("product/skills", self.agents_target / "skills"),
+            ("product/commands", self.agents_target / "commands"),
+            ("product/plugins", self.target / "plugins"),
+            ("product/workflows", self.agents_target / "workflows"),
+            ("product/configs", self.target),
         ]
 
     def log(self, msg):
@@ -42,6 +44,14 @@ class SyncTool:
 
     def ensure_clone(self):
         self._local_source = ensure_clone(self.staging, self.repo_url)
+        # When repo_url is a remote URL, _local_source is the staging clone.
+        # If staging uses flat layout but the local repo (cwd) uses product/
+        # layout, prefer the local repo as the source so plugins/configs sync
+        # correctly without requiring --repo.
+        if self._local_source == self.staging.resolve():
+            local_repo = Path.cwd().resolve()
+            if (local_repo / "product").is_dir():
+                self._local_source = local_repo
         return self._local_source is not None
 
     def backup_target(self, target_dir):
@@ -61,6 +71,12 @@ class SyncTool:
         src_root = self._local_source or self.staging
         if source_subdir:
             src_root = src_root / source_subdir
+            # Support both `product/<name>` (upstream layout) and flat
+            # `<name>` (some staging/checkouts) layouts.
+            if not src_root.exists():
+                flat = self.staging / source_subdir.rsplit("/", 1)[-1]
+                if flat.exists():
+                    src_root = flat
         src_files = collect_files(src_root) if src_root.exists() else set()
         tgt_files = collect_files(target_dir)
         manifest = target_dir / '.opc-manifest'
@@ -72,8 +88,14 @@ class SyncTool:
             if rel not in tgt_files:
                 changes.append(("add", rel, "new from source"))
             else:
-                sh = file_hash(src_root / rel)
-                th = file_hash(target_dir / rel)
+                # For JSON/JSONC, normalize both sides (strip comments/env) before
+                # hashing so the written (canonical) target matches the source hash.
+                if rel.endswith((".json", ".jsonc")):
+                    sh = self._json_hash(src_root / rel)
+                    th = self._json_hash(target_dir / rel)
+                else:
+                    sh = file_hash(src_root / rel)
+                    th = file_hash(target_dir / rel)
                 if sh != th:
                     if self.force:
                         changes.append(("update", rel, "overwrite"))
@@ -86,25 +108,47 @@ class SyncTool:
                 changes.append(("delete", rel, "removed from source"))
         return changes
 
+    def _json_hash(self, path):
+        """Return SHA-256 hex digest of canonical JSON/JSONC (comments/env stripped)."""
+        h = hashlib.sha256()
+        h.update(self._json_normalized(path))
+        return h.hexdigest()
+
+    def _json_normalized(self, path):
+        """Return canonical bytes of a JSON/JSONC file (comments/env stripped)."""
+        text = path.read_text(encoding="utf-8")
+        text = strip_jsonc_comments(text)
+        text = substitute_env(text)
+        try:
+            obj = json.loads(text)
+            text = json.dumps(obj, indent=2) + "\n"
+        except Exception:
+            pass
+        return text.encode("utf-8")
+
     def _write_json_file(self, src, dst):
-        """Write a JSON/JSONC file with env substitution, comment stripping, deep-merge."""
+        """Write a JSON/JSONC file with env substitution and comment stripping.
+
+        The target is written as the canonical source so `verify` reports no
+        drift after a pull. Local additions are preserved via target backups
+        taken before each pull.
+        """
         src_text = substitute_env(strip_jsonc_comments(src.read_text()))
         json.loads(src_text)  # validate source JSON
-        if dst.exists():
-            dst_data = json.loads(substitute_env(strip_jsonc_comments(dst.read_text())))
-            merged = deep_merge(json.loads(src_text), dst_data)
-            atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
-        else:
-            atomic_write_text(dst, src_text)
+        atomic_write_text(dst, src_text)
 
     def _write_text_file(self, src, dst):
-        atomic_write_text(dst, substitute_env(src.read_text(encoding="utf-8")))
+        atomic_write_text(dst, src.read_text(encoding="utf-8"))
 
     def apply_changes(self, changes, source_subdir="", target_dir=None):
         target_dir = target_dir or self.target
         src_root = self._local_source or self.staging
         if source_subdir:
             src_root = src_root / source_subdir
+            if not src_root.exists():
+                flat = self.staging / source_subdir.rsplit("/", 1)[-1]
+                if flat.exists():
+                    src_root = flat
         added = updated = deleted = skipped = conflicts = 0
         for action, rel, detail in changes:
             src = src_root / rel
@@ -162,6 +206,7 @@ class SyncTool:
     def cmd_pull(self):
         if not self.ensure_clone():
             return 1
+
         if not self.dry_run:
             seen = set()
             for _, target_dir in self.groups:
@@ -184,7 +229,7 @@ class SyncTool:
                     src_root = src_root / source_subdir
                 files = sorted(collect_files(src_root)) if src_root.exists() else []
                 manifest = target_dir / '.opc-manifest'
-                manifest.write_text("\n".join(files) + "\n")
+                atomic_write_text(manifest, "\n".join(files) + "\n")
         if not self.dry_run:
             fetch_skill_catalogs(self._local_source or self.staging,
                                  self.agents_target, self.dry_run)

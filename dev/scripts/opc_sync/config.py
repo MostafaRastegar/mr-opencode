@@ -6,9 +6,19 @@ import re
 
 
 def strip_jsonc_comments(text):
-    """Remove // and /* */ comments (naive but works for config files)."""
-    text = re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
+    """Remove // and /* */ comments (naive but works for config files).
+
+    Protects URLs so their // is never treated as a comment.
+    """
+    # Protect URLs (and their //) so they are not mistaken for comments.
+    urls = re.findall(r"https?://[^\s\"',}]+", text)
+    for i, u in enumerate(urls):
+        text = text.replace(u, f"\x00URL{i}\x00")
+    # Strip // comments (start-of-line or inline) and /* */ block comments.
+    text = re.sub(r"//[^\n]*", "", text)
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    for i, u in enumerate(urls):
+        text = text.replace(f"\x00URL{i}\x00", u)
     return text
 
 

@@ -3,5 +3,18 @@
   "skills": [
     // Ponytail skill catalog (HTTP). Uncomment to enable:
     // "https://raw.githubusercontent.com/DietrichGebert/ponytail/main/"
+  ],
+  "plugins": [
+    // Shared plugin bundled in product/plugins/code-reviewer.json
+    "code-reviewer",
+    {
+      "package": "code-reviewer",
+      "options": {
+        "review_on_files": ["*.py", "*.ts", "*.go", "*.rs"],
+        "require_approval": false
+      }
+    },
+    // Disable fork notice on new forks
+    "-opencode.fork-notice"
   ]
 }

@@ -27,7 +27,7 @@ python3 dev/scripts/opc-sync.py doctor
 
 | command | purpose |
 |---------|---------|
-| `pull` | Clone/update the repo and sync `agents/`, `skills/`, `commands/` to `~/.agents` and `configs/` to `~/.config/opencode`. Backs up targets before writing. |
+| `pull` | Clone/update the repo and sync `agents/` to `~/.config/opencode/agents`, `skills/`, `commands/`, `workflows/` to `~/.agents`, and `configs/` to `~/.config/opencode`. Backs up targets before writing. |
 | `status` | Show source/target file counts (`--list` lists source files; `--diff` shows pending add/update/delete/conflict per group with content diffs; `--json` emits machine-readable JSON). |
 | `clean` | Delete target files that no longer exist in the source. Use `--yes` to skip confirmation. |
 | `verify` | Read-only check that all synced targets match the source with no drift; exits non-zero if drift is found. |
@@ -91,10 +91,10 @@ python3 dev/scripts/opc-sync.py clean --yes
 
 ## Catalog
 
-- Agents: `product/agents/` -> synced to `~/.agents` (shared, harness-agnostic)
+- Agents: `product/agents/` -> synced to `~/.config/opencode/agents` (opencode-specific)
 - Skills: `product/skills/` -> synced to `~/.agents/skills`
 - Commands: `product/commands/` -> synced to `~/.agents/commands`
-- Plugins: `product/plugins/` -> synced to `~/.agents/plugins` (shared, harness-agnostic)
+- Plugins: `product/plugins/` -> synced to `~/.config/opencode/plugins` (opencode-specific)
 - Workflows: `product/workflows/` -> synced to `~/.agents/workflows` (shared, harness-agnostic)
 - Configs: `product/configs/` -> synced to `~/.config/opencode` (opencode-specific)
 
@@ -110,7 +110,7 @@ On Windows `~/.agents` resolves to `%USERPROFILE%\.agents`.
 ## Repo layout
 
 - `product/` — configuration that gets synced to end-user machines:
-  - `product/agents/` -> `~/.agents` (shared, harness-agnostic)
+  - `product/agents/` -> `~/.config/opencode/agents` (opencode-specific)
   - `product/skills/` -> `~/.agents/skills`
   - `product/commands/` -> `~/.agents/commands`
   - `product/configs/` -> `~/.config/opencode` (opencode-specific)
