@@ -56,6 +56,16 @@ export ROUTER_API_KEY="sk-123..."
 python3 scripts/opc-sync.py pull
 ```
 
+## Pre-push verification hook
+
+A zero-dependency git `pre-push` hook runs `tests/test_opc_sync.py` and `opc-sync.py verify` on every `git push`, blocking the push if tests fail or config drift is detected. Install once after cloning:
+
+```bash
+python3 scripts/install-git-hooks.py
+```
+
+The hook is sourced from `scripts/git-hooks/pre-push` and copied into `.git/hooks/`. No npm / node_modules required — stdlib Python only.
+
 ## HTTP skill catalogs
 
 `pull` also downloads skills listed under `skills` in `configs/opencode.jsonc` from HTTP catalog URLs. Each catalog's `index.json` describes skill `id`, `version`, and `files` (with `dest` and `url`). Files are written to `~/.agents/skills/<id>/`, and a `VERSION` marker is created when a version is provided.

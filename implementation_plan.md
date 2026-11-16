@@ -26,17 +26,18 @@ Transform mr-opencode into central OpenCode config repo synced via zero-dependen
 8. status --json for CI integration
 
 ### P3 — CI / Automation
-9. GitHub Actions workflow for verify on push
+9. Git pre-push hook (`scripts/git-hooks/pre-push`) runs `tests/test_opc_sync.py` and `opc-sync.py verify` on every `git push`; install once via `python3 scripts/install-git-hooks.py` (no npm required)
 10. dry-run flag for verify
 
 ## [Files]
 - scripts/opc-sync.py (modified)
 - scripts/setup-opencode.sh (modified)
 - scripts/setup-opencode.ps1 (modified)
+- scripts/git-hooks/pre-push (new)
+- scripts/install-git-hooks.py (new)
 - tests/test_opc_sync.py (new)
 - README.md (modified)
 - implementation_plan.md (modified)
-- .github/workflows/verify.yml (new)
 
 ## [Dependencies]
 Python 3.8+ stdlib, git
