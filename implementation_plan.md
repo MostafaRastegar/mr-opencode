@@ -1,39 +1,42 @@
 # Implementation Plan
 
 ## [Overview]
-Transform mr-opencode into central OpenCode config repo synced via zero-dependency Python stdlib tool (scripts/opc-sync.py) for ~150 developers. No pip packages required.
+Transform mr-opencode into central OpenCode config repo synced via zero-dependency Python stdlib tool (scripts/opc-sync.py) for ~150 developers. No pip packages required. Cross-platform (Linux/macOS/Windows).
 
-## [Types]
-Config dict; file sets set[str]; hash map dict[str,str]; change records (action, path, detail).
+## [Current State]
+- opc-sync.py syncs agents/, skills/, commands/ -> ~/.agents and configs/ -> ~/.config/opencode
+- Multi-target groups, backup before pull, manifest tracking
+- ~150 developers targeted
+- tests/ directory exists but is empty
+
+## [Prioritized Feature Roadmap]
+
+### P0 — Safety & Correctness (do first)
+1. Unit tests for opc-sync.py (tests/test_opc_sync.py)
+2. Validate JSON/YAML before writing in pull (reject corrupt configs)
+3. Atomic write / rollback on failure during pull
+
+### P1 — Organizational Needs
+4. Environment variable substitution in synced config files (${VAR})
+5. Local user overrides (local.jsonc not managed by sync, preserved across pulls)
+
+### P2 — Developer Experience
+6. Enhanced status --diff (show content diffs, not just filenames)
+7. HTTP skill catalog download support
+8. status --json for CI integration
+
+### P3 — CI / Automation
+9. GitHub Actions workflow for verify on push
+10. dry-run flag for verify
 
 ## [Files]
-- scripts/opc-sync.py (modified) - multi-target sync groups:
-    agents/, skills/, commands/ -> ~/.agents (shared, harness-agnostic)
-    configs/ -> ~/.config/opencode (opencode-specific)
+- scripts/opc-sync.py (modified)
 - scripts/setup-opencode.sh (modified)
-- .github/workflows/verify.yml (modified)
-- README.md (modified)
+- scripts/setup-opencode.ps1 (modified)
 - tests/test_opc_sync.py (new)
-- sample content already present
-
-## [Scope]
-- `~/.agents` is cross-platform (Linux/macOS/Windows via Path.home()/USERPROFILE).
-- OpenCode-only settings stay under `~/.config/opencode` and out of `~/.agents`.
-
-## [Functions]
-main, cmd_pull, cmd_status, cmd_clean, cmd_verify, cmd_doctor, run_git, ensure_clone, file_hash, collect_files, diff_sets, backup_target, apply_changes.
-
-## [Classes]
-SyncTool
+- README.md (modified)
+- implementation_plan.md (modified)
+- .github/workflows/verify.yml (new)
 
 ## [Dependencies]
-Python 3.8+ stdlib, git.
-
-## [Testing]
-unittest for hashing/diff; manual smoke; CI verify.
-
-## [Implementation Order]
-1. Write opc-sync.py
-2. Update bootstrap/CI/README
-3. Add tests
-4. Validate
+Python 3.8+ stdlib, git

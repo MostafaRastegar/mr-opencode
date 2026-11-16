@@ -33,6 +33,18 @@ python3 scripts/opc-sync.py doctor
 | `verify` | Read-only check that all synced targets match the source with no drift; exits non-zero if drift is found. |
 | `doctor` | Print environment info (python, git, MCP binaries, target paths, write access) for troubleshooting. |
 
+## Global options
+
+| option | default | purpose |
+|--------|---------|---------|
+| `--repo` | `git@github.com:MostafaRastegar/mr-opencode.git` | Git repo URL (or local path) to clone/pull as the config source. |
+| `--target` | `~/.config/opencode` | Target directory for OpenCode-specific configs (`configs/`). |
+| `--agents-target` | `~/.agents` | Target directory for shared, harness-agnostic agents/skills/commands. |
+| `--staging` | `~/.cache/opc-sync` | Local staging clone used when `--repo` is a remote URL. |
+| `--force` | off | Overwrite local conflicts instead of reporting them. |
+| `--dry-run` | off | Show what would change without writing anything. |
+| `--verbose` | off | Print per-file add/update/skip/conflict details. |
+
 ## Updating
 
 ```bash

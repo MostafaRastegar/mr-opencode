@@ -75,6 +75,22 @@ def collect_files(root):
     return out
 
 
+def atomic_write_text(path, content):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp." + str(os.getpid()))
+    tmp.write_text(content, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def substitute_env(text):
+    """Replace ${VAR} and $VAR with environment values. Missing vars left unchanged."""
+    def repl(m):
+        var = m.group(1) or m.group(2)
+        return os.environ.get(var, m.group(0))
+    return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9]*)", repl, text)
+
+
 class SyncTool:
     def __init__(self, repo_url=DEFAULT_REPO, target=DEFAULT_TARGET,
                  agents_target=DEFAULT_AGENTS_TARGET, staging=DEFAULT_STAGING,
@@ -87,6 +103,7 @@ class SyncTool:
         self.dry_run = dry_run
         self.verbose = verbose
         self._local_source = None
+        self.errors = []
         # (source subdir in repo, local target dir).
         # agents/skills/commands go to ~/.agents (harness-agnostic, shared).
         # configs/ is opencode-specific -> ~/.config/opencode.
@@ -177,32 +194,42 @@ class SyncTool:
                     self.log(f"[dry-run] add {rel}")
                 else:
                     dst.parent.mkdir(parents=True, exist_ok=True)
-                    if rel.endswith((".json", ".jsonc")) and dst.exists():
+                    if rel.endswith((".json", ".jsonc")):
                         try:
-                            src_data = json.loads(strip_jsonc_comments(src.read_text()))
-                            dst_data = json.loads(strip_jsonc_comments(dst.read_text()))
-                            merged = deep_merge(src_data, dst_data)
-                            dst.write_text(json.dumps(merged, indent=2) + "\n")
-                        except Exception:
-                            shutil.copy2(src, dst)
+                            src_text = strip_jsonc_comments(src.read_text())
+                            json.loads(src_text)
+                            if dst.exists():
+                                dst_data = json.loads(strip_jsonc_comments(dst.read_text()))
+                                merged = deep_merge(json.loads(src_text), dst_data)
+                                atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
+                            else:
+                                atomic_write_text(dst, src.read_text(encoding="utf-8"))
+                        except Exception as e:
+                            self.errors.append(f"{rel}: invalid JSON source ({e}); skipped")
+                            continue
                     else:
-                        shutil.copy2(src, dst)
+                        atomic_write_text(dst, src.read_text(encoding="utf-8"))
                 added += 1
             elif action == "update":
                 if self.dry_run:
                     self.log(f"[dry-run] update {rel}")
                 else:
                     dst.parent.mkdir(parents=True, exist_ok=True)
-                    if rel.endswith((".json", ".jsonc")) and dst.exists():
+                    if rel.endswith((".json", ".jsonc")):
                         try:
-                            src_data = json.loads(strip_jsonc_comments(src.read_text()))
-                            dst_data = json.loads(strip_jsonc_comments(dst.read_text()))
-                            merged = deep_merge(src_data, dst_data)
-                            dst.write_text(json.dumps(merged, indent=2) + "\n")
-                        except Exception:
-                            shutil.copy2(src, dst)
+                            src_text = strip_jsonc_comments(src.read_text())
+                            json.loads(src_text)
+                            if dst.exists():
+                                dst_data = json.loads(strip_jsonc_comments(dst.read_text()))
+                                merged = deep_merge(json.loads(src_text), dst_data)
+                                atomic_write_text(dst, json.dumps(merged, indent=2) + "\n")
+                            else:
+                                atomic_write_text(dst, src.read_text(encoding="utf-8"))
+                        except Exception as e:
+                            self.errors.append(f"{rel}: invalid JSON source ({e}); skipped")
+                            continue
                     else:
-                        shutil.copy2(src, dst)
+                        atomic_write_text(dst, src.read_text(encoding="utf-8"))
                 updated += 1
             elif action == "delete":
                 if self.dry_run:
@@ -220,6 +247,10 @@ class SyncTool:
                 skipped += 1
         print(f"Summary: added={added} updated={updated} deleted={deleted} "
               f"skipped={skipped} conflicts={conflicts}")
+        if self.errors:
+            for e in self.errors:
+                print(f"ERROR: {e}", file=sys.stderr)
+            return 1
         return 0 if conflicts == 0 else 1
 
     def cmd_pull(self):
@@ -248,6 +279,8 @@ class SyncTool:
                 files = sorted(collect_files(src_root)) if src_root.exists() else []
                 manifest = target_dir / '.opc-manifest'
                 manifest.write_text("\n".join(files) + "\n")
+        if self.errors:
+            rc = 1
         return rc
 
     def cmd_status(self, list_items=False, diff=False):
