@@ -1,17 +1,30 @@
-// Registers a `db-status` tool: reports the project's migration state.
+// Registers three stack-neutral helper tools: db-status, check-file, check-acceptance.
 // V2 has no `.opencode/tools/`; tools come from a plugin via ctx.tool.transform.
 // No imports outside node: builtins, so the plugin loads in a bare project.
+//
+// The template assumes NO language, runner, or database. Fill in the two
+// configuration blocks below for the project; until then the tools report
+// "not configured" instead of guessing.
 
 import { execFile } from "node:child_process"
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
-import { join, resolve, sep } from "node:path"
+import { extname, join, resolve, sep } from "node:path"
 
-const CANDIDATES = [
-  { file: "prisma/schema.prisma", label: "Prisma", cmd: "npx", args: ["--no-install", "prisma", "migrate", "status"] },
-  { file: "alembic.ini", label: "Alembic", cmd: "alembic", args: ["current"] },
-  { file: "manage.py", label: "Django", cmd: "python3", args: ["manage.py", "showmigrations", "--plan"] },
-]
+// db-status: one entry per migration tool this project uses. Each entry is
+// detected by the presence of `file` and then run read-only.
+// Examples (adapt and uncomment; add your own tool the same way):
+//   { file: "prisma/schema.prisma", label: "Prisma", cmd: "npx", args: ["--no-install", "prisma", "migrate", "status"] }
+//   { file: "alembic.ini", label: "Alembic", cmd: "alembic", args: ["current"] }
+//   { file: "manage.py", label: "Django", cmd: "python3", args: ["manage.py", "showmigrations", "--plan"] }
+const MIGRATION_CANDIDATES = []
+
+// check-file: any command that prints `path:line: ...` diagnostics to stdout or
+// stderr. `extensions` limits which files the command is worth running for;
+// omit it to run for every file.
+// Example (TypeScript):
+//   { cmd: "npx", args: ["--no-install", "tsc", "--noEmit", "--pretty", "false"], extensions: [".ts", ".tsx", ".js", ".jsx"] }
+const TYPECHECK = null
 
 const run = (cmd, args, cwd) =>
   new Promise((resolve) => {
@@ -19,12 +32,6 @@ const run = (cmd, args, cwd) =>
       resolve({ code: error?.code ?? 0, stdout, stderr })
     })
   })
-
-const localTsc = (directory) => {
-  const binary = join(directory, "node_modules", ".bin", "tsc")
-  return existsSync(binary) ? binary : null
-}
-
 
 export default {
   id: "project-tools",
@@ -35,17 +42,25 @@ export default {
       editor.add({
         name: "db-status",
         description:
-          "Report the project's database migration status. Detects Prisma, Alembic, and Django. Read-only.",
+          "Report the project's database migration status using the configured migration command. Read-only.",
         input: { type: "object", properties: {}, required: [], additionalProperties: false },
         options: { codemode: true },
         execute: async () => {
-          const found = CANDIDATES.filter((candidate) => existsSync(join(directory, candidate.file)))
+          if (MIGRATION_CANDIDATES.length === 0) {
+            return {
+              content:
+                "db-status is not configured for this project. " +
+                "Add your migration tool to MIGRATION_CANDIDATES in .opencode/plugins/project-tools/index.js.",
+            }
+          }
+
+          const found = MIGRATION_CANDIDATES.filter((candidate) => existsSync(join(directory, candidate.file)))
           if (found.length === 0) {
             return {
               content:
-                "No supported migration tool detected in this project. " +
-                "Looked for: prisma/schema.prisma, alembic.ini, manage.py. " +
-                "Extend CANDIDATES in .opencode/plugins/project-tools/index.js for this stack.",
+                "None of the configured migration markers exists in this project: " +
+                MIGRATION_CANDIDATES.map((candidate) => candidate.file).join(", ") +
+                ". Check the paths in MIGRATION_CANDIDATES.",
             }
           }
 
@@ -61,9 +76,9 @@ export default {
       })
 
       editor.add({
-        name: "check-imports",
+        name: "check-file",
         description:
-          "Report TypeScript errors that mention a given file. Use after creating, moving, or renaming a file. Read-only.",
+          "Run the configured typecheck/import command and return only the diagnostics that mention one file. Use after creating, moving, or renaming a file. Read-only.",
         input: {
           type: "object",
           properties: { file: { type: "string", description: "Project-relative path, for example src/app.ts" } },
@@ -73,18 +88,24 @@ export default {
         options: { codemode: true },
         execute: async (input) => {
           const file = String(input.file ?? "").replace(/^\.\//, "")
-          if (!file) return { content: "check-imports needs a file path." }
+          if (!file) return { content: "check-file needs a file path." }
 
-          if (!existsSync(join(directory, "tsconfig.json"))) {
-            return { content: `No tsconfig.json in ${directory}; check-imports is TypeScript-only.` }
+          if (!TYPECHECK) {
+            return {
+              content:
+                "check-file is not configured for this project. " +
+                "Set TYPECHECK in .opencode/plugins/project-tools/index.js to your typecheck command, or drop the tool from the workflow.",
+            }
           }
 
-          const tsc = localTsc(directory)
-          if (!tsc) {
-            return { content: "No local tsc found. Run the project's install step first (tsc lives in node_modules/.bin)." }
+          const ext = extname(file)
+          if (TYPECHECK.extensions && !TYPECHECK.extensions.includes(ext)) {
+            return {
+              content: `${file} has extension "${ext || "(none)"}", which TYPECHECK.extensions does not cover. Nothing to check.`,
+            }
           }
 
-          const { code, stdout, stderr } = await run(tsc, ["--noEmit", "--pretty", "false"], directory)
+          const { code, stdout, stderr } = await run(TYPECHECK.cmd, TYPECHECK.args, directory)
           const lines = `${stdout}\n${stderr}`
             .split("\n")
             .filter((line) => line.includes(file))
@@ -94,11 +115,11 @@ export default {
             return {
               content:
                 code === 0
-                  ? `No TypeScript errors reported for ${file}.`
-                  : `tsc exited ${code} but reported no error line mentioning ${file}. The error is elsewhere.`,
+                  ? `No diagnostics reported for ${file}.`
+                  : `The typecheck command exited ${code} but reported no line mentioning ${file}. The error is elsewhere.`,
             }
           }
-          return { content: `TypeScript errors mentioning ${file}:\n${lines.join("\n")}` }
+          return { content: `Diagnostics mentioning ${file}:\n${lines.join("\n")}` }
         },
       })
 

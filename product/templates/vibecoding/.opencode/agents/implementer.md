@@ -9,9 +9,11 @@ permissions:
   # .opencode/*, .env*, .git/*, .githooks/*) actually apply. Agent rules are
   # appended after global rules, so an `edit: "*" allow` here would override them.
   #
-  # No broad shell rule either: the project asks for every command. Only this
-  # agent's routine commands are pre-approved below. Everything else prompts,
-  # and a prompt is rejected automatically in `opencode run`.
+  # No broad shell rule either: the project asks for every command. Nothing is
+  # pre-approved for a particular stack on purpose. Add one `allow` rule per
+  # command this project expects the Implementer to run without a prompt, using
+  # <TEST_CMD>, <TYPECHECK_CMD>, <LINT_CMD>, <BUILD_CMD> from AGENTS.md.
+  # In `opencode run` an unlisted command is rejected instead of prompting.
   - action: shell
     resource: "*"
     effect: ask
@@ -34,74 +36,22 @@ permissions:
   - action: shell
     resource: "git branch --show-current *"
     effect: allow
-  - action: shell
-    resource: "npm test *"
-    effect: allow
-  - action: shell
-    resource: "npm run test *"
-    effect: allow
-  - action: shell
-    resource: "npm run typecheck *"
-    effect: allow
-  - action: shell
-    resource: "npm run lint *"
-    effect: allow
-  - action: shell
-    resource: "npm run build *"
-    effect: allow
-  - action: shell
-    resource: "pnpm test *"
-    effect: allow
-  - action: shell
-    resource: "pnpm typecheck *"
-    effect: allow
-  - action: shell
-    resource: "pnpm lint *"
-    effect: allow
-  - action: shell
-    resource: "yarn test *"
-    effect: allow
-  - action: shell
-    resource: "yarn typecheck *"
-    effect: allow
-  - action: shell
-    resource: "yarn lint *"
-    effect: allow
-  - action: shell
-    resource: "npx tsc *"
-    effect: allow
-  - action: shell
-    resource: "npx eslint *"
-    effect: allow
-  - action: shell
-    resource: "npx vitest *"
-    effect: allow
-  - action: shell
-    resource: "npx jest *"
-    effect: allow
-  - action: shell
-    resource: "pytest *"
-    effect: allow
-  - action: shell
-    resource: "python3 -m pytest *"
-    effect: allow
-  - action: shell
-    resource: "python -m pytest *"
-    effect: allow
-  - action: shell
-    resource: "go test *"
-    effect: allow
-  - action: shell
-    resource: "go vet *"
-    effect: allow
-  - action: shell
-    resource: "cargo test *"
-    effect: allow
-  - action: shell
-    resource: "cargo check *"
-    effect: allow
+  # Example for a Node + pnpm project. Replace the commands, keep the shape, and
+  # uncomment. A shell pattern ending in * also matches the bare command.
+  # - action: shell
+  #   resource: "pnpm test *"
+  #   effect: allow
+  # - action: shell
+  #   resource: "pnpm exec tsc --noEmit *"
+  #   effect: allow
+  # - action: shell
+  #   resource: "pnpm lint *"
+  #   effect: allow
+  # - action: shell
+  #   resource: "pnpm build *"
+  #   effect: allow
   # Repeated on purpose: agent rules are appended last, so this stays the final
-  # word for push even if one of the allow patterns above is broadened later.
+  # word for push even if an allow pattern is added above.
   - action: shell
     resource: "git push *"
     effect: deny
@@ -117,11 +67,12 @@ Before writing code, load the `project-stack` skill. Load `data-model` as well
 when the task touches queries, mutations, or schema.
 
 - Write code that matches the plan.
-- Run the project's test suite after each significant change.
-- Run the typecheck command from AGENTS.md before running tests, and again before
-  reporting completion. Fix type errors before test failures.
-- Fix test failures and type errors before reporting completion.
-- After creating or moving a TypeScript file, call the `check-imports` tool on it.
+- Run `<TEST_CMD>` after each significant change. Take the command from the
+  Project Profile in AGENTS.md; do not guess a runner.
+- Run `<TYPECHECK_CMD>` before tests and again before reporting completion
+  (skip it when the profile says `-`). Fix type errors before test failures.
+- After creating or moving a file the project's typecheck covers, call the
+  `check-file` tool when it is configured.
 - Keep changes minimal and focused. Do not refactor unrelated code.
 - When the work is done, launch the `reviewer` subagent (step 3 of the Handoff Protocol) instead of waiting to be asked.
 
@@ -131,7 +82,8 @@ When a command fails (test, typecheck, build), follow this sequence:
 
 1. Read the error. Identify the exact file, line, and error type.
 2. Classify it:
-   - Type error → fix the type. Do not cast to `any`.
+   - Type error → fix the type. Do not silence the check with a cast, an ignore
+     comment, or a disabled rule.
    - Test failure → read the assertion. If the plan explicitly changes expected
      behavior, update the test to the new contract. Otherwise fix the code.
      Never relax an assertion just to get a green run.
@@ -148,7 +100,7 @@ When a command fails (test, typecheck, build), follow this sequence:
 The Architect's plan has an "Acceptance Criteria" section. Before reporting completion:
 
 1. Run the `check-acceptance` tool on the plan file.
-2. Run the typecheck command; it must exit 0.
+2. Run `<TYPECHECK_CMD>`; it must exit 0 (skip when the profile says `-`).
 3. For every unchecked criterion: implement it, add a test that proves it, or ask
    the human to defer it explicitly. Never tick a box without evidence.
 4. Load the `behavior-docs` skill and write `docs/behaviors/<feature>.md`.

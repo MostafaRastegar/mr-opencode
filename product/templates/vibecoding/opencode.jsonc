@@ -26,20 +26,12 @@
   // Change: "manual" if you want the option back.
   "share": "disabled",
 
-  // Directories the filesystem watcher ignores. Why: node_modules/.venv/dist
-  // churn burns CPU and pollutes file search. Change: add this project's heavy
-  // output directories; keep the glob style ("dir/**").
+  // Directories the filesystem watcher ignores. Empty on purpose: the template
+  // does not assume a build system. Add this project's heavy directories, for
+  // example "node_modules/**", ".venv/**", "dist/**", or "target/**".
+  // Why: build output churn burns CPU and pollutes file search.
   "watcher": {
-    "ignore": [
-      "node_modules/**",
-      ".venv/**",
-      "venv/**",
-      "dist/**",
-      "build/**",
-      "coverage/**",
-      ".next/**",
-      "target/**"
-    ]
+    "ignore": []
   },
 
   // How much tool output is kept before truncation. Why: a failing test suite is
@@ -146,10 +138,10 @@
     "buffer": "20%"
   },
 
-  // Web search provider. Why Exa: the only one configured on this machine.
-  // Change: see `opencode.ai/docs/websearch` for the provider list; the paired
-  // credential is EXA_API_KEY (OPENCODE_ENABLE_EXA is the V1 switch).
-  "websearch": { "provider": "exa" },
+  // Web search is unset on purpose: the template does not assume a provider.
+  // Why: a provider id with no matching credential just fails at runtime.
+  // Change: add `{ "websearch": { "provider": "<PROVIDER_ID>" } }` and set the
+  // paired `<PROVIDER>_API_KEY`; with no provider, the first search asks.
 
   // Experimental settings; they may change or disappear between releases.
   // todo: gives agents a todowrite tool for multi-step work, which makes long

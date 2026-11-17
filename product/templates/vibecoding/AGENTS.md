@@ -1,29 +1,48 @@
 # Project Rules
 
+## Project Profile (fill in before use)
+
+This template is deliberately not tied to a language, runner, or framework. Fill
+in the values below, then delete this note. While any `<...>` token remains,
+agents must stop and ask the human instead of guessing a command.
+
+- Stack: `<STACK>`
+- Primary language: `<LANGUAGE>`
+- Test command: `<TEST_CMD>`
+- Typecheck command: `<TYPECHECK_CMD>` (use `-` if the project has none)
+- Lint command: `<LINT_CMD>` (use `-` if the project has none)
+- Build command: `<BUILD_CMD>`
+- Migration command: `<MIGRATION_CMD>` (use `-` if the project has none)
+- Dependency manifest / lockfile: `<LOCKFILE>`
+- Language rules: `<LANGUAGE_RULES>` (strictness, banned escape hatches, naming)
+
 ## Code Standards
 
-- TypeScript strict mode is mandatory. `any` is forbidden. Use `unknown` and narrow types.
-- Never use `@ts-ignore` or `@ts-expect-error` without an adjacent comment explaining why.
-- All exported functions must have explicit return types.
+- `<LANGUAGE_RULES>` from the profile above is mandatory.
+- Never suppress a diagnostic (cast, ignore comment, disabled rule) without an
+  adjacent explanation and a human's approval.
+- Public functions and modules must have explicit types where the language
+  supports them.
 
 ## Testing
 
-- Every new function or module must have corresponding unit tests.
-- Run `npm test` before considering a task complete. Replace this with the project's real command (`pnpm test`, `pytest`, ...).
+- Every new function or module must have corresponding tests.
+- Run `<TEST_CMD>` before considering a task complete.
 - A failing run is surfaced automatically by the `test-feedback` plugin. Treat that reminder as a hard stop, not a suggestion.
 
 ## Type Checking & Diagnostics
 
-- Run the typecheck command before reporting completion. TypeScript: `npx tsc --noEmit`. Python: `pyright` or `mypy .`. Go: `go vet ./...`. Rust: `cargo check`.
-- Run the linter as well when the project has one: `eslint .`, `ruff check .`, `golangci-lint run`.
+- Run `<TYPECHECK_CMD>` before reporting completion; skip it when the profile
+  says `-`.
+- Run `<LINT_CMD>` when the profile sets one.
 - Fix type errors before running tests; a type error makes a green test run meaningless.
 - LSP is accepted by the OpenCode v2.3.0 config but not implemented in that build: no language server starts and no diagnostics reach the agent. Do not claim to have read LSP diagnostics in this project.
 
 ## Git & Dependencies
 
 - Do not run `git push --force` under any circumstances.
-- A new npm/pip dependency requires explicit approval from the human user.
-- Keep the lockfile (`package-lock.json`, `pnpm-lock.yaml`, `uv.lock`) committed.
+- A new dependency requires explicit approval from the human user.
+- Keep `<LOCKFILE>` committed.
 
 ## File Editing
 
@@ -31,8 +50,9 @@
 - `AGENTS.md`, `opencode.jsonc`, `.opencode/{agents,plugins,skills,commands}/`,
   `.githooks/`, `.git/`, and `.env*` files are locked by permissions. Ask the
   human to change them; do not try to work around the deny.
-- Shell commands outside the pre-approved test/typecheck/lint/git set require
-  human approval. If a command is rejected, report it instead of retrying.
+- Shell commands are not pre-approved for any runner. A maintainer adds `allow`
+  rules for this project's commands (see the agent files). If a command is
+  rejected, report it instead of retrying or working around it.
 
 ## Plan Mode
 

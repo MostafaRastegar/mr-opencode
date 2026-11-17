@@ -10,15 +10,12 @@ permissions:
   - action: shell
     resource: "*"
     effect: ask
-  - action: shell
-    resource: "npm test *"
-    effect: allow
-  - action: shell
-    resource: "npm run test *"
-    effect: allow
-  - action: shell
-    resource: "pytest *"
-    effect: allow
+  # No test command is pre-approved: the template must not assume a runner.
+  # Add one `allow` rule for <TEST_CMD> from AGENTS.md, or every run will prompt.
+  # Example (Node + pnpm) — replace and uncomment:
+  # - action: shell
+  #   resource: "pnpm test *"
+  #   effect: allow
   - action: shell
     resource: "git diff *"
     effect: allow

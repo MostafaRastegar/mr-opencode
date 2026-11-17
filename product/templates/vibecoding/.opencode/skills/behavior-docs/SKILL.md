@@ -29,5 +29,6 @@ Every file created or modified. The Reviewer uses this to scope its check.
 
 ## Verification
 
-The commands you ran and their result: test suite, `check-imports`, manual check.
-If a criterion was verified only by reading code, say that instead of claiming a test.
+The commands you ran and their result: the test suite, the typecheck (`<TYPECHECK_CMD>`
+in AGENTS.md), `check-file` if configured, and any manual check. If a criterion
+was verified only by reading code, say that instead of claiming a test.

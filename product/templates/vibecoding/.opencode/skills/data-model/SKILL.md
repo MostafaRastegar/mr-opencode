@@ -5,19 +5,22 @@ description: "Data model and query rules. Load when designing queries, mutations
 
 # Data Model
 
-Authoritative source: `unknown` (fill in — for example `prisma/schema.prisma`,
-`models.py`, or a migrations directory). Read it before writing any query.
+Authoritative source: `<SCHEMA_PATH>` (fill in — the schema file, ORM model
+directory, or migrations folder for this project). Read it before writing any
+query.
 
 ## Entities
 
-- unknown — fill in the entities, their owner, and their lifecycle flags.
+- `<ENTITY>` — fill in each entity, its owner, and its lifecycle flags
+  (soft delete, status, tenancy).
 
 ## Rules
 
-- Read the schema first; never invent a field.
-- Select only the columns you need; avoid N+1 by batching or joining.
-- Soft-delete: if the entity has a `deletedAt`/`is_deleted` flag, filter it in
-  every query that lists or fetches.
-- Mutations: check ownership/authorization before update or delete.
-- Schema changes: add a migration, never edit an applied one.
+- Read the schema first; never invent a field or a relation.
+- Select only the columns you need; avoid N+1 by batching or joining when the
+  data layer supports it.
+- Soft-delete: if the entity has a delete flag, filter it in every query that
+  lists or fetches.
+- Mutations: check ownership and authorization before update or delete.
+- Schema changes: add a migration; never edit an applied one.
 - Unknown behavior is a question for the human, not a guess.
