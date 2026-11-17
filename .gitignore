@@ -11,3 +11,4 @@ htmlcov/
 *.bak.*
 # opc-sync staging/backups
 .cache/opc-sync/
+example

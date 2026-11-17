@@ -3,7 +3,7 @@
 // "completed" with result.output.exitCode set, not status "error".
 
 const CHECK_COMMAND =
-  /(^|[;&|]\s*)((npx|bunx|pnpm\s+exec|yarn\s+exec|poetry\s+run|uv\s+run|timeout\s+\S+)\s+)?(npm\s+(run\s+)?(test|typecheck|lint)|pnpm\s+(test|typecheck|lint)|yarn\s+(test|typecheck|lint)|bun\s+(test|run\s+(typecheck|lint))|pytest|python3?\s+-m\s+pytest|go\s+(test|vet)|cargo\s+(test|check|clippy)|mvn\s+test|gradlew?\s+test|dotnet\s+test|jest|vitest|phpunit|rspec|mix\s+test|make\s+(test|check)|tsc|eslint|pyright|mypy|ruff\s+check|golangci-lint)(\s|$)/
+  /(^|[;&|]\s*)((npx|bunx|pnpm\s+exec|yarn\s+exec|poetry\s+run|uv\s+run|timeout\s+\S+)\s+)?(npm\s+(run\s+)?(test|typecheck|lint)|pnpm\s+(test|typecheck|lint)|yarn\s+(test|typecheck|lint)|bun\s+(test|run\s+(typecheck|lint))|pytest|python3?\s+-m\s+(pytest|unittest)|go\s+(test|vet)|cargo\s+(test|check|clippy)|mvn\s+test|gradlew?\s+test|dotnet\s+test|jest|vitest|phpunit|rspec|mix\s+test|make\s+(test|check)|tsc|eslint|pyright|mypy|ruff\s+check|golangci-lint)(\s|$)/
 
 const exitCodeOf = (event) => {
   const value = event.result?.output?.exitCode ?? event.result?.metadata?.exit
