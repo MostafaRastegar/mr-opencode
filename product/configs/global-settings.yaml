@@ -1,9 +1,0 @@
-# This file will be placed at ~/.config/opencode/global-settings.yaml
-# (Or merge into opencode.jsonc depending on your setup)
-model: "anthropic/claude-sonnet-4-20250514"
-small_model: "anthropic/claude-haiku-4-5-20251001"
-permission:
-  edit: ask
-  bash:
-    "git push*": ask
-    "rm -rf *": ask

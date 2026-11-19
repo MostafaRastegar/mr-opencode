@@ -22,12 +22,12 @@ No MCP, no CI/CD.
   docs recommend CLI lint/typecheck over LSP in most projects. `AGENTS.md` gains
   a "Type Checking & Diagnostics" section with the exact commands and an
   obligation to run them before reporting completion.
-- **`test-feedback` is extended to typecheck/lint failures.** This is the part
+- **`mro-test-feedback` is extended to typecheck/lint failures.** This is the part
   of the LSP intent that actually pays off in V2: a failing `tsc`/`eslint`/
   `pyright` run now injects a fix-required reminder into the agent loop instead
   of failing silently. No new plugin.
 - **Plan mode is enforced at three levels:** the agent's `edit: deny`
-  permissions (already present), an explicit instruction in `architect.md` to
+  permissions (already present), an explicit instruction in `mro-architect.md` to
   stop instead of bypassing, and a global `AGENTS.md` rule.
 - **Manual compaction exists but is not `/compact` in the TUI.** V2 documents
   `opencode api post /api/session/<id>/compact`; the TUI keybind is
@@ -41,15 +41,15 @@ No MCP, no CI/CD.
 
 1. `opencode.jsonc` — commented `lsp` block with the measured reason
 2. `AGENTS.md` — typecheck commands, plan-mode rule, session hygiene, loop rule
-3. `.opencode/agents/implementer.md` — typecheck before reporting
-4. `.opencode/agents/architect.md` — never attempt to bypass plan-mode edit denial
-5. `.opencode/plugins/test-feedback/index.js` — typecheck/lint coverage
+3. `.opencode/agents/mro-implementer.md` — typecheck before reporting
+4. `.opencode/agents/architectmro-architect.md` — never attempt to bypass plan-mode edit denial
+5. `.opencode/plugins/mro-test-feedback/index.js` — typecheck/lint coverage
 6. `README.md` — LSP status, typecheck section, stability notes
 
 ## [Known Limits]
 
 - The typecheck rule is only as good as the command the project fills in.
-- `test-feedback` matches command text; a typecheck hidden inside a wrapper
+- `mro-test-feedback` matches command text; a typecheck hidden inside a wrapper
   script (`make check`) is not detected.
 - `lsp` behaviour was tested on v2.3.0 only; re-test before enabling.
 - A stop rule cannot force a model to obey it; it only gives the human a clear

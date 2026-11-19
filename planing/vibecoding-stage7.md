@@ -38,7 +38,7 @@ layer. This stage makes the config cover the workflow, and locks the guardrails.
 ## [Deliverables]
 
 1. `opencode.jsonc` — rewritten, commented per key
-2. `.opencode/agents/implementer.md` — no broad edit/shell allow, allowlist
+2. `.opencode/agents/mro-implementer.md` — no broad edit/shell allow, allowlist
 3. `.opencode/agents/{architect,reviewer,test-runner}.md` — `execute` deny,
    final `sudo` deny
 4. `AGENTS.md` — locked-files rule, shell-approval rule
@@ -85,7 +85,7 @@ opencode run --agent implementer "read /etc/hostname"          # external_direct
 - `npm test` executed (allowlisted) and failed with ENOENT because the copy had
   no `package.json` — proof it reached the shell.
 - Reading `/etc/hostname` hit `external_directory` and was rejected.
-- `default_agent: architect` is reflected in the session header; `build` resolves
+- `default_agent: mro-architect` is reflected in the session header; `build` resolves
   to `opencode/longcat-2.5-free`.
 - **Limit:** the free-model quota was exhausted for the `opencode` provider, so
   behaviour tests used `9router/openrouter/nvidia/nemotron-3.5-super-vl:free`.

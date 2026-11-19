@@ -8,7 +8,7 @@ Steps 11–13 of the source plan. Step 10 (MCP/GitHub) is explicitly out of scop
 
 - `.opencode/tools/` is a V1-only convention. V2 registers tools from a plugin with
   `ctx.tool.transform((editor) => editor.add({...}))`. The `db-status` tool is
-  therefore shipped as `.opencode/plugins/project-tools/index.js`.
+  therefore shipped as `.opencode/plugins/mro-project-tools/index.js`.
 - `@opencode-ai/plugin` / `@opencode/plugin` are not resolvable in a bare project,
   so plugins stay import-free except for `node:` builtins.
 - Test feedback uses `ctx.tool.hook("execute.after", ...)`. A shell failure is
@@ -20,9 +20,9 @@ Steps 11–13 of the source plan. Step 10 (MCP/GitHub) is explicitly out of scop
 
 ## [Deliverables]
 
-1. `.opencode/plugins/project-tools/index.js` — `db-status` tool
+1. `.opencode/plugins/mro-project-tools/index.js` — `db-status` tool
    (Prisma, Alembic, Django detection)
-2. `.opencode/plugins/test-feedback/index.js` — appends a fix-required reminder
+2. `.opencode/plugins/mro-test-feedback/index.js` — appends a fix-required reminder
    after a failing test command
 3. `opencode.jsonc` — `compaction` block + `agents.compaction.model`
 4. `README.md` — plugin inventory, compaction rationale, verification
@@ -39,7 +39,7 @@ Steps 11–13 of the source plan. Step 10 (MCP/GitHub) is explicitly out of scop
 ## [Verification]
 
 ```sh
-opencode plugin list                                   # protect-secrets, project-tools, test-feedback
+opencode plugin list                                   # mro-protect-secrets, mro-project-tools, mro-test-feedback
 opencode debug agents                                  # compaction agent model resolved
 opencode run "call db-status"                          # returns migration status or a clear "not detected"
 opencode run "run: false"                              # no reminder (not a test command)

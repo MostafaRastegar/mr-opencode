@@ -9,7 +9,7 @@ by request.
 
 - Acceptance criteria are a hard plan requirement and use `- [ ]` bullets so a
   tool can parse them.
-- `check-acceptance` is a plugin tool in the existing `project-tools` plugin, not
+- `check-acceptance` is a plugin tool in the existing `mro-project-tools` plugin, not
   a `.opencode/tools/` file (V1 only).
 - The tool reports counts and unchecked items. It does **not** claim to detect
   test coverage: the source plan's description says "mark ones that have
@@ -20,10 +20,10 @@ by request.
 
 ## [Deliverables]
 
-1. `.opencode/agents/architect.md` — mandatory Acceptance Criteria section
-2. `.opencode/skills/behavior-docs/SKILL.md`
-3. `.opencode/agents/implementer.md` — Definition of Done
-4. `.opencode/plugins/project-tools/index.js` — `check-acceptance`
+1. `.opencode/agents/architectmro-architect.md` — mandatory Acceptance Criteria section
+2. `.opencode/skills/mro-behavior-docs/SKILL.md`
+3. `.opencode/agents/mro-implementer.md` — Definition of Done
+4. `.opencode/plugins/mro-project-tools/index.js` — `check-acceptance`
 5. `README.md` — skill and tool inventory
 
 ## [Known Limits]
@@ -38,7 +38,7 @@ by request.
 ```sh
 opencode run "call check-acceptance for .opencode/plans/demo.md"   # counts + unchecked list
 opencode run "call check-acceptance for ../../etc/passwd"          # refused
-opencode run "load the behavior-docs skill and reply with its first heading"
+opencode run "load the mro-behavior-docs skill and reply with its first heading"
 opencode debug agents                                             # architect prompt carries the requirement
 ```
 
@@ -47,7 +47,7 @@ opencode debug agents                                             # architect pr
 - `check-acceptance` on a three-criterion plan returned
   `Total: 3 | Checked: 1 | Unchecked: 2` plus the two unchecked bullets.
 - `../../etc/passwd` was refused; a missing file produced a read error, not a crash.
-- `behavior-docs` loads (skill ID from the directory name).
-- Step 22 (end-to-end `/plan-feature` → implement → doc → review simulation) was
+- `mro-behavior-docs` loads (skill ID from the directory name).
+- Step 22 (end-to-end `/mro-plan-feature` → implement → doc → review simulation) was
   not run, per instruction.
 

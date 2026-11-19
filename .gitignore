@@ -12,3 +12,5 @@ htmlcov/
 # opc-sync staging/backups
 .cache/opc-sync/
 example
+example*
+.opencode

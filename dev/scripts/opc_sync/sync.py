@@ -12,6 +12,10 @@ from .config import deep_merge, strip_jsonc_comments, substitute_env
 from .fs import atomic_write_text, collect_files, content_diff, file_hash
 from .git import ensure_clone
 
+# Project-template folders that must never be part of the global sync payload.
+# They are copied into a project by hand (see README "Project install").
+SYNC_EXCLUDE_TOP = ("core",)
+
 
 class SyncTool:
     def __init__(self, repo_url, target, agents_target, staging,
@@ -26,16 +30,21 @@ class SyncTool:
         self._local_source = None
         self.errors = []
         # (source subdir in repo, local target dir).
-        # product/agents/skills/commands/workflows go to ~/.agents (harness-agnostic, shared).
-        # product/plugins/ is opencode-specific -> ~/.config/opencode/plugins.
-        # product/configs/ is opencode-specific -> ~/.config/opencode.
+        # product/agents is opencode-specific -> ~/.config/opencode/agents.
+        # product/skills and product/workflows are harness-agnostic -> ~/.agents.
+        # product/configs is opencode-specific -> ~/.config/opencode.
+        # Project-layer workflow content lives in the core/ folders under
+        # product/{agents,commands,plugins,skills} plus product/AGENTS.md
+        # (copied manually per project). core/ is excluded from the global sync
+        # via SYNC_EXCLUDE_TOP.
         self.groups = [
             ("product/agents", self.target / "agents"),
             ("product/skills", self.agents_target / "skills"),
-            ("product/commands", self.agents_target / "commands"),
-            ("product/plugins", self.target / "plugins"),
             ("product/workflows", self.agents_target / "workflows"),
             ("product/configs", self.target),
+            # OpenCode-specific project-layer commands/plugins synced globally.
+            ("product/commands", self.target / "commands"),
+            ("product/plugins", self.target / "plugins"),
         ]
 
     def log(self, msg):
@@ -77,8 +86,9 @@ class SyncTool:
                 flat = self.staging / source_subdir.rsplit("/", 1)[-1]
                 if flat.exists():
                     src_root = flat
-        src_files = collect_files(src_root) if src_root.exists() else set()
-        tgt_files = collect_files(target_dir)
+        src_files = (collect_files(src_root, exclude_top=SYNC_EXCLUDE_TOP)
+                     if src_root.exists() else set())
+        tgt_files = collect_files(target_dir, exclude_top=SYNC_EXCLUDE_TOP)
         manifest = target_dir / '.opc-manifest'
         tracked = set()
         if manifest.exists():
@@ -227,7 +237,8 @@ class SyncTool:
                 src_root = self._local_source or self.staging
                 if source_subdir:
                     src_root = src_root / source_subdir
-                files = sorted(collect_files(src_root)) if src_root.exists() else []
+                files = (sorted(collect_files(src_root, exclude_top=SYNC_EXCLUDE_TOP))
+                         if src_root.exists() else [])
                 manifest = target_dir / '.opc-manifest'
                 atomic_write_text(manifest, "\n".join(files) + "\n")
         if not self.dry_run:
@@ -280,7 +291,7 @@ class SyncTool:
         print(f"source files: {len(collect_files(src_root))}")
         for source_subdir, target_dir in self.groups:
             print(f"target files ({source_subdir} -> {target_dir}): "
-                  f"{len(collect_files(target_dir))}")
+                  f"{len(collect_files(target_dir, exclude_top=SYNC_EXCLUDE_TOP))}")
         return 0
 
     def cmd_clean(self, yes=False):

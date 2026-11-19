@@ -80,6 +80,22 @@ class TestHelpers(unittest.TestCase):
             self.assertIn("sub/b.txt", files)
             self.assertNotIn(".git/config", files)
 
+    def test_collect_files_excludes_top(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "keep.md").write_text("k")
+            (root / "core").mkdir()
+            (root / "core" / "architect.md").write_text("a")
+            (root / "nested").mkdir()
+            (root / "nested" / "core").mkdir()
+            (root / "nested" / "core" / "x.md").write_text("x")
+            files = collect_files(root, exclude_top=("core",))
+            self.assertIn("keep.md", files)
+            self.assertNotIn("core/architect.md", files)
+            # only a top-level `core/` is excluded, nested names are kept
+            self.assertIn("nested/core/x.md", files)
+
 
 class TestSyncToolInit(unittest.TestCase):
     def test_defaults(self):
@@ -89,10 +105,11 @@ class TestSyncToolInit(unittest.TestCase):
         self.assertEqual(len(tool.groups), 6)
         self.assertEqual(tool.groups[0], ("product/agents", tool.target / "agents"))
         self.assertEqual(tool.groups[1], ("product/skills", tool.agents_target / "skills"))
-        self.assertEqual(tool.groups[2], ("product/commands", tool.agents_target / "commands"))
-        self.assertEqual(tool.groups[3], ("product/plugins", tool.target / "plugins"))
-        self.assertEqual(tool.groups[4], ("product/workflows", tool.agents_target / "workflows"))
-        self.assertEqual(tool.groups[5], ("product/configs", tool.target))
+        self.assertEqual(tool.groups[2], ("product/workflows", tool.agents_target / "workflows"))
+        self.assertEqual(tool.groups[3], ("product/configs", tool.target))
+        self.assertEqual(tool.groups[4], ("product/commands", tool.target / "commands"))
+        self.assertEqual(tool.groups[5], ("product/plugins", tool.target / "plugins"))
+
 
 
 if __name__ == "__main__":

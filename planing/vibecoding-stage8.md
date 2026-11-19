@@ -42,17 +42,17 @@ placeholder, and makes the config *stop* instead of guess.
 
 - `AGENTS.md`: Project Profile block + gate rule; language-neutral standards,
   testing, typecheck, git rules; `<LOCKFILE>` replaces the four-file list.
-- `.opencode/agents/implementer.md`: 28 allow rules → git read-only only; one
+- `.opencode/agents/mro-implementer.md`: 28 allow rules → git read-only only; one
   commented `<TEST_CMD>`-style example; `check-file` wording conditional.
-- `.opencode/agents/test-runner.md`: test allowlist removed, example commented;
+- `.opencode/agents/test-runnermro-test-runner.md`: test allowlist removed, example commented;
   `execute: deny`, deny-on-push/sudo kept.
-- `.opencode/plugins/project-tools/index.js`: `MIGRATION_CANDIDATES = []`,
+- `.opencode/plugins/mro-project-tools/index.js`: `MIGRATION_CANDIDATES = []`,
   `TYPECHECK = null`, "not configured" paths, tool renamed `check-file`.
-- `.opencode/skills/project-stack/SKILL.md`: generic discovery order, profile
+- `.opencode/skills/mro-project-stack/SKILL.md`: generic discovery order, profile
   precedence note.
-- `.opencode/skills/data-model/SKILL.md`: `<SCHEMA_PATH>`, `<ENTITY>`.
-- `.opencode/skills/code-review-checklist/SKILL.md`: language-neutral checklist.
-- `.opencode/skills/behavior-docs/SKILL.md`: typecheck reference, no tool name.
+- `.opencode/skills/mro-data-model/SKILL.md`: `<SCHEMA_PATH>`, `<ENTITY>`.
+- `.opencode/skills/mro-code-review-checklist/SKILL.md`: language-neutral checklist.
+- `.opencode/skills/mro-behavior-docs/SKILL.md`: typecheck reference, no tool name.
 - `opencode.jsonc`: watcher emptied with examples, websearch removed, LSP comment
   kept as a measured fact.
 - `.env.example`: placeholders only.
@@ -64,10 +64,10 @@ placeholder, and makes the config *stop* instead of guess.
 Run inside `product/templates/vibecoding/`:
 
 - `opencode debug config` — JSONC parsed, project document at
-  `opencode.jsonc`, `default_agent: architect`, empty `watcher.ignore`.
+  `opencode.jsonc`, `default_agent: mro-architect`, empty `watcher.ignore`.
 - `opencode debug agents` — architect / implementer / reviewer / test-runner all
   built with the permission list intact (YAML comments did not break parsing).
-- `opencode plugin list` — `project-tools`, `protect-secrets`, `test-feedback`.
+- `opencode plugin list` — `mro-project-tools`, `mro-protect-secrets`, `mro-test-feedback`.
 - `node --check` + dynamic `import()` of the plugin — syntax and load OK.
 - `db-status` via Code Mode → "db-status is not configured for this project...".
 - `check-file src/ok.ts` via Code Mode → "check-file is not configured...".
@@ -75,7 +75,7 @@ Run inside `product/templates/vibecoding/`:
   reported `<TEST_CMD>` unfilled and stopped instead of guessing.
 - `grep -rniE "typescript|prisma|npm test|tsc|pytest|next\.js|node_modules|\.venv"`
   → only comments/examples (agent files, plugin comments, config comments), the
-  generic runner regex in `test-feedback`, and the README worked example.
+  generic runner regex in `mro-test-feedback`, and the README worked example.
 
 ## [Open issues]
 

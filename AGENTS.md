@@ -45,3 +45,16 @@ ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
 - Before spawning a subagent, query the graph and coverage in the parent. Pass the tier, project, generation/freshness, bounded scope, queries and pagination state, qualified symbols, paths, call-chain findings, coverage evidence with ranges/reasons, source fallback already performed, and unresolved questions in the delegated task context.
 - Do not assume subagents inherit MCP access or the parent conversation. If a child lacks MCP tools, it must not call or claim MCP access. It should use the supplied evidence and read/grep exact source, especially every reported missed-coverage range.
 <!-- codebase-memory-mcp:end -->
+
+## Repository maintenance note
+
+`product/AGENTS.md` is a **shipped template artifact**, not instructions for this
+repository. Its `<...>` Project Profile placeholders (`<STACK>`, `<TEST_CMD>`,
+`<MODEL_ID>`, …) are intentional and must be ignored while maintaining
+`mr-opencode`; do not treat them as missing information or stop to ask about
+them. The rules for this repository are the ones in this file (the repo root).
+
+Likewise the folders under `product/agents/`, `product/commands/`,
+`product/plugins/`, and `product/skills/`, plus `product/AGENTS.md` and
+`product/configs/opencode.jsonc`, hold the project-layer template that is copied
+into downstream projects; they are not active configuration for this repository.

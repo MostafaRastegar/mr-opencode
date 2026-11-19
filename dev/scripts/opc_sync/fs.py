@@ -14,19 +14,25 @@ def file_hash(p):
     return h.hexdigest()
 
 
-def collect_files(root):
+def collect_files(root, exclude_top=()):
     """Return a set of relative POSIX paths for all files under root.
 
-    Skips anything inside a .git directory.
+    Skips anything inside a .git directory, and skips any path whose top-level
+    directory name is in ``exclude_top`` (e.g. the ``core/`` project-template
+    folders that must not be part of the global sync payload).
     """
     out = set()
     if not root.exists():
         return out
+    exclude_top = set(exclude_top)
     for p in root.rglob("*"):
         if any(part == ".git" for part in p.parts):
             continue
+        rel = p.relative_to(root)
+        if exclude_top and rel.parts and rel.parts[0] in exclude_top:
+            continue
         if p.is_file():
-            out.add(p.relative_to(root).as_posix())
+            out.add(rel.as_posix())
     return out
 
 
