@@ -125,19 +125,35 @@ When a command fails (test, typecheck, build), follow this sequence:
 
 The Architect's plan has an "Acceptance Criteria" section. Before reporting completion:
 
-1. Run the `check-acceptance` tool on the plan file.
+1. Run the `check-acceptance` tool on the plan file. Read the fields, not just the
+   count:
+   - every `verify:` command must be run through the normal shell rules;
+   - a `- [x]` needs an `evidence:` note naming the command and result;
+   - a `- [~]` needs a `reason:` and the human's explicit agreement.
+   Update the plan with `- [x] ... evidence: ...` only after the command passed.
+   Never tick a box because the code "looks right".
 2. Run `<TYPECHECK_CMD>`; it must exit 0 (skip when the profile says `-`).
-3. For every unchecked criterion: implement it, add a test that proves it, or ask
-   the human to defer it explicitly. Never tick a box without evidence.
-4. Load the `mro-behavior-docs` skill and write `docs/behaviors/<feature>.md`.
-5. Create or update `README.md` per the plan's Documentation impact section:
+3. For every pending criterion: implement it, add a test that proves it, or ask
+   the human to defer it explicitly with `- [~] ... reason: ...`.
+4. Run the `secret-audit` tool on the working tree. A finding is a hard stop:
+   remove the literal and report it (do not commit it, do not "fix" it by
+   deleting the evidence).
+5. Load the `mro-behavior-docs` skill and write `docs/behaviors/<feature>.md`,
+   including `last_verified: <YYYY-MM-DD>` and `source_files: <comma list>`.
+6. Create or update `README.md` per the plan's Documentation impact section:
    install, run, config/env, usage, tests, layout, limitations. If no change is
    needed, record why.
-6. Then launch the reviewer subagent, as in the Handoff Protocol, unless an
+7. Then launch the reviewer subagent, as in the Handoff Protocol, unless an
    `Orchestration handoff` says the Orchestrator owns review.
 
 If a requirement is ambiguous or blocked, ask the human instead of guessing. Under
 an `Orchestration handoff`, return the question to the caller instead.
+
+When the reviewer returns findings, fix every CRITICAL and HIGH, then re-run the
+suite and the reviewer. The loop is conditional: another round is allowed while
+the CRITICAL count keeps decreasing, up to three rounds total. Stop and ask the
+human when CRITICAL stays flat or rises. HIGH findings may be deferred only with
+the human's explicit agreement.
 
 ## Changelog
 

@@ -9,6 +9,18 @@ After the acceptance criteria are verified, write `docs/behaviors/<feature-name>
 Describe behavior that exists, not behavior you intend. If something is not
 verified, say so.
 
+Start the file with the two retention fields. `mro-doctor --docs` and the Reviewer
+both use them:
+
+```yaml
+last_verified: <YYYY-MM-DD>
+source_files: <comma-separated paths this document describes>
+```
+
+`last_verified` may be refreshed only after the checks were re-run against the
+current code. When a `source_files` entry changes, update the document in the same
+change; a newer source file makes the doc stale.
+
 ## What users can do now
 
 One short paragraph, plain language, no code and no file names.

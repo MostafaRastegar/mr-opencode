@@ -41,6 +41,9 @@ Run the project's test command and return the raw output verbatim.
 - Do not summarize away failures.
 - Do not edit files or retry with a different command.
 - Include the exit code.
+- If the command could not start (missing binary, permission rejected, provider
+  error), report that separately from a test failure: `blocked: <reason>`.
+  Never claim a suite passed when no suite ran.
 - When the caller gives you a log path (for example
   `.opencode/reviews/<feature>.tests.log`), write the raw output and exit code
   there as well, then return that path alongside the command and exit code.

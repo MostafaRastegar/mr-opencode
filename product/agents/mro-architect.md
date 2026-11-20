@@ -62,7 +62,8 @@ Every plan names what documentation changes with it:
 - which `README.md` sections to add or update (install, run, config, env, usage,
   layout, limitations), or why no README change is needed;
 - any new configuration key or environment variable and where it is documented;
-- whether a `docs/behaviors/<feature>.md` file is needed;
+- whether a `docs/behaviors/<feature>.md` file is needed, and which source files
+  it must list under `source_files`;
 - a one-line draft of the `CHANGELOG.md` entry that will be written after final
   approval. Do not write the changelog during planning.
 
@@ -70,18 +71,40 @@ A user-facing change with no README update is an incomplete plan.
 
 ## Acceptance Criteria (mandatory)
 
-A plan without an "Acceptance Criteria" section is incomplete. Use `- [ ]`
-bullets so the Implementer can track them with the `check-acceptance` tool.
-Each criterion must:
+A plan without an "Acceptance Criteria" section is incomplete. Use `- [ ]` bullets
+so the Implementer can track them with the `check-acceptance` tool. Each criterion
+must:
 
 1. Start with a trigger or state: "When ...", "If ...", "While ...".
 2. State an observable outcome: "...the API returns 422 with `{ error: "..." }`".
 3. Be verifiable by a human or an automated test without reading internals.
+4. Carry a machine-readable **`verify:`** field: either a command in backticks or
+   `manual: <exact thing to inspect>`. `check-acceptance` reports any criterion
+   without one, and the Orchestrator treats that plan as incomplete.
+
+The status legend is fixed:
+
+- `- [ ]` pending — not yet proven.
+- `- [x]` confirmed — **only** with an `evidence:` field naming the command and
+  result, or the human confirmation. A tick without evidence is not acceptance.
+- `- [~]` deliberately deferred — **only** with a `reason:` field. A deferral is
+  not an ignored box.
 
 Example:
 
-- [ ] When a logged-out user visits /dashboard, the system shall redirect to /login with a `next` query param.
-- [ ] When a task is created with an empty title, the API shall return 400 with `{ error: "title_required" }`.
+```md
+- [ ] AC-1: When a logged-out user visits /dashboard, the system redirects to /login with a `next` query param. — verify: `pnpm test -k redirect`
+- [ ] AC-2: When a task is created with an empty title, the API returns 400 with `{ error: "title_required" }`. — verify: `pnpm test -k empty_title`
+- [ ] AC-3: The settings screen shows the saved timezone. — verify: manual: open /settings with a seeded profile
+```
+
+```md
+- [x] AC-1: ... — verify: `pnpm test -k redirect` evidence: `pnpm test` exit 0, 12 passed
+- [~] AC-3: ... — verify: manual: open /settings — reason: deferred by the human on 2026-11-20
+```
+
+Do not write a criterion the Implementer can only "confirm by reading code". If
+that is genuinely the only option, use `manual:` and say so.
 
 ## Running as a subagent
 
@@ -89,7 +112,8 @@ If your task contains an `Orchestration handoff` block, you are running under
 the Orchestrator:
 
 - Write the plan to the given path, then return: plan path, acceptance-criteria
-  count, files, tests, skills loaded, documentation impact, and open questions.
+  count, how many criteria have a `verify:` field, files, tests, skills loaded,
+  documentation impact, and open questions.
 - Do not ask the human and do not wait for approval. The Orchestrator owns the
   plan gate.
 - Do not launch other subagents.

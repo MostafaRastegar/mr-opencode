@@ -1,11 +1,18 @@
 #!/bin/sh
 # Zero-dependency secret scanner for staged changes.
 # Install with: git config core.hooksPath .githooks
+#
+# Layers:
+#   1. direct patterns on added lines
+#   2. best-effort base64 decoding of long base64-ish runs
+#
+# Known gaps: split/obfuscated secrets, encrypted blobs, and binary files.
+# `git commit --no-verify` skips this hook by design.
 set -eu
 
-PATTERNS='sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
+PATTERNS='sk-(proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|(sk|rk)_(live|test)_[A-Za-z0-9]{16,}|npm_[A-Za-z0-9]{36}|pypi-[A-Za-z0-9_-]{50,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
 
-staged=$(git diff --cached -U0 -- . | grep -E '^\+' || true)
+staged=$(git diff --cached -U0 -- . | grep -E '^\+' | grep -v '^+++' || true)
 
 if [ -z "$staged" ]; then
   exit 0
@@ -16,4 +23,18 @@ if printf '%s\n' "$staged" | grep -Eq "$PATTERNS"; then
   printf '%s\n' "$staged" | grep -En "$PATTERNS" | cut -c1-160 >&2
   echo "Replace the literal with an environment variable, or commit with --no-verify deliberately." >&2
   exit 1
+fi
+
+# Best effort: decode base64 candidates and re-scan. Skip quietly when the
+# platform lacks `base64 -d`.
+if command -v base64 >/dev/null 2>&1; then
+  for candidate in $(printf '%s\n' "$staged" | grep -oE '[A-Za-z0-9+/]{24,}={0,2}' || true); do
+    decoded=$(printf '%s' "$candidate" | base64 -d 2>/dev/null || true)
+    if [ -n "$decoded" ] && printf '%s\n' "$decoded" | grep -Eq "$PATTERNS"; then
+      echo "pre-commit: potential base64-encoded secret in staged changes" >&2
+      printf '%s\n' "$decoded" | grep -En "$PATTERNS" | cut -c1-160 >&2
+      echo "Replace the literal with an environment variable, or commit with --no-verify deliberately." >&2
+      exit 1
+    fi
+  done
 fi

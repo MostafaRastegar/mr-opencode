@@ -6,6 +6,11 @@ This template is deliberately not tied to a language, runner, or framework. Fill
 in the values below, then delete this note. While any `<...>` token remains,
 agents must stop and ask the human instead of guessing a command.
 
+The supported way to fill them is `node .opencode/scripts/mro-doctor.mjs --init`
+(it detects the manifest, suggests commands, and writes both this profile and
+`.opencode/mro-profile.json`). `node .opencode/scripts/mro-doctor.mjs` checks for
+gaps and exits non-zero; the Orchestrator runs it as a hard preflight.
+
 - Stack: `<STACK>`
 - Primary language: `<LANGUAGE>`
 - Test command: `<TEST_CMD>`
@@ -29,6 +34,41 @@ agents must stop and ask the human instead of guessing a command.
 - Every new function or module must have corresponding tests.
 - Run `<TEST_CMD>` before considering a task complete.
 - A failing run is surfaced automatically by the `mro-test-feedback` plugin. Treat that reminder as a hard stop, not a suggestion.
+- Before reporting, run the `secret-audit` tool on the working tree. Pattern
+  detectors are best-effort (see README), so a clean result is not a guarantee.
+
+## Acceptance Criteria
+
+Plans use a fixed, machine-readable shape. The `check-acceptance` tool reports
+each field, so an incomplete plan is visible before implementation.
+
+```md
+- [ ] AC-1: When <trigger>, <observable outcome>. — verify: `<command>`
+- [x] AC-2: ... — verify: `<command>` evidence: `<command>` exit 0, N passed
+- [~] AC-3: ... — verify: manual: <what to check> — reason: <why, and who agreed>
+```
+
+- `[ ]` is pending. `[x]` is confirmed **with evidence**; a tick with no evidence
+  is not acceptance. `[~]` is deliberately deferred and **requires a reason**.
+- Every non-deferred criterion needs a `verify:` command, or `manual: <check>`
+  when no automated check exists.
+- `check-acceptance` never executes the verify commands. Run them through the
+  normal shell permissions; it only reports missing fields.
+- A plan that omits `verify:` on a criterion is incomplete. The Architect must fix
+  it before the plan gate.
+
+## Fix Loop
+
+The review loop is conditional, not a fixed single retry:
+
+- CRITICAL must reach zero before final approval.
+- Another round is allowed while the CRITICAL count strictly decreases, up to
+  three rounds total.
+- If CRITICAL stays flat or rises, stop and ask the human.
+- HIGH findings do not block by themselves, but each one is either fixed or
+  listed with a reason and explicitly accepted by the human. Never drop one
+  silently.
+- Record the round and severity counts in the orchestration state file.
 
 ## Type Checking & Diagnostics
 
@@ -61,6 +101,9 @@ agents must stop and ask the human instead of guessing a command.
 - If producing a plan seems to require changing a source file, stop and ask the
   human to hand off to the Implementer. Do not look for a way around the
   restriction.
+- Every plan includes an Acceptance Criteria section in the format above,
+  including a `verify:` for each criterion, and a Documentation impact section.
+  A plan without them is incomplete.
 
 ## Session Hygiene
 
@@ -101,6 +144,26 @@ it only after the human gives final approval, and only then:
 - Mention deferrals and known limitations instead of hiding them.
 - Never invent version numbers, and never rewrite earlier entries.
 
+## Behavior Docs
+
+`docs/behaviors/<feature>.md` is a deliverable with retention rules:
+
+- Front matter must include `last_verified: <YYYY-MM-DD>` and
+  `source_files: <comma-separated paths>`. `last_verified` changes only when the
+  tests were actually re-run against the current code.
+- When a source file in `source_files` changes, update the doc in the same change.
+  `node .opencode/scripts/mro-doctor.mjs --docs` reports stale docs; the
+  Orchestrator treats a stale doc as a gap and the Reviewer as a HIGH finding.
+- The Reviewer checks that the behavior doc describes what the diff does, not what
+  the plan intended.
+
+## Unconfigured Tools
+
+`db-status` and `check-file` say "not configured" until
+`.opencode/mro-profile.json` exists. That is an honest gap, not a pass. Run
+`node .opencode/scripts/mro-doctor.mjs --init` before relying on them; the
+Orchestrator preflight fails while the profile is missing.
+
 ## Skills
 
 Project skills are part of the instructions. Use them.
@@ -123,32 +186,38 @@ human asked for.
 
 ### Orchestrated workflow (default)
 
-1. The Orchestrator (`mro-orchestrator`) reads the request and the Project
-   Profile, inventories the available skills, then launches the Architect as a
-   subagent.
+1. The Orchestrator (`mro-orchestrator`) runs the hard preflight
+   (`mro-doctor`, model reachability), reads the Project Profile, inventories the
+   available skills, then launches the Architect as a subagent.
 2. Architect writes the plan to `.opencode/plans/<feature>.md` with an
-   **Acceptance Criteria** section and a **Documentation impact** section
-   (README, config, behavior doc). It returns the path and open questions.
+   **Acceptance Criteria** section (every criterion has `verify:`) and a
+   **Documentation impact** section (README, config, behavior doc). It returns the
+   path and open questions.
 3. Orchestrator validates the plan and stops for explicit human approval. No code
    is written before that approval.
 4. Orchestrator launches the Implementer with the plan path, the available
    skills, and the README requirement. The Implementer does not launch the
    Reviewer: the Orchestrator owns review in this path.
 5. Orchestrator checks that `README.md` exists and matches the change, then
-   launches the Reviewer and Test Runner in parallel. Reviewer writes to
+   launches the Reviewer and Test Runner in parallel. The Reviewer gets the diff,
+   the acceptance criteria, and `AGENTS.md` — not the plan's rationale — so its
+   judgement stays independent. Reviewer writes to
    `.opencode/reviews/<feature>.md`; Test Runner writes its log there too.
 6. Orchestrator sends CRITICAL/HIGH findings and failures back to the same
-   Implementer session, then re-runs tests and reviews once. If issues remain, it
-   stops and asks the human.
-7. Orchestrator reports evidence (test exit code, severity counts, acceptance
-   status, README state) and asks for final approval. It never pushes.
+   Implementer session. The loop is conditional (see "Fix Loop"): another round is
+   allowed while CRITICAL decreases, up to three rounds; flat or rising CRITICAL
+   stops the run. CRITICAL must reach zero.
+7. Orchestrator reports evidence (test exit code, severity counts and round
+   history, acceptance status, README state) and asks for final approval. It never
+   pushes.
 8. After explicit final approval, the Orchestrator has the Implementer add the
    `CHANGELOG.md` entry, verifies it, and only then marks the work done.
 
 Subagents start with fresh context and cannot talk to the human, so every handoff
 must carry the feature slug, plan path, review path, diff scope, prior findings,
 available skills, and a return contract. The Orchestrator state file is
-`.opencode/plans/<feature>.orchestrator.md`.
+`.opencode/plans/<feature>.orchestrator.json` (structured JSON, not a scratch
+markdown note) and its audit trail is `.opencode/plans/<feature>.log.jsonl`.
 
 ### Manual workflow
 
@@ -157,11 +226,12 @@ available skills, and a return contract. The Orchestrator state file is
    relevant project skills before coding.
 3. The Implementer creates or updates `README.md` as part of the Definition of
    Done when the change affects usage, config, or behavior.
-4. When the work is done, Implementer launches the `mro-reviewer` subagent with the plan path and the diff scope.
+4. When the work is done, Implementer launches the `mro-reviewer` subagent with the diff scope and the acceptance criteria (not the design rationale).
    Slash commands are user-invoked; agents cannot run them, so use the subagent tool.
 5. Reviewer writes findings to `.opencode/reviews/<feature>.md` (or `current.md`) and returns a one-paragraph summary.
-6. Implementer fixes every CRITICAL and HIGH finding, then re-runs the reviewer once.
-   If issues remain after that, stop and ask the human.
+6. Implementer fixes every CRITICAL and HIGH finding, then re-runs the suite and
+   the reviewer. The same conditional loop applies: another round while CRITICAL
+   decreases, at most three; flat or rising CRITICAL stops the run.
 7. After the human gives final approval, Implementer adds the `CHANGELOG.md`
    entry. Do not write it before approval.
 

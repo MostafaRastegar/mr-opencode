@@ -2,7 +2,7 @@
 description: "Independent read-only review: correctness, security, types, tests."
 mode: subagent
 model: 9router/nemo
-steps: 8
+steps: 12
 permissions:
   - action: edit
     resource: "*"
@@ -41,18 +41,81 @@ Before reviewing, load every project skill that applies to the change (not only
 the `mro-*` ones) and use `mro-code-review-checklist` for the review itself.
 Report which skills you loaded.
 
-Checklist:
+## Blind by design
 
-1. Correctness: does the code do what the plan says? Which edge cases are missed?
-2. Security: injection risks, exposed secrets, unsafe deserialization.
-3. Type safety: any use of `any` or type escapes.
-4. Test coverage: are the new code paths covered?
-5. Project rules: does it violate AGENTS.md?
-6. Documentation: when behavior, config, env, commands, or dependencies changed,
-   is `README.md` updated and accurate? A user-facing change with a stale or
-   missing README is a HIGH finding. Verify commands and paths named in the
-   README against the repository; do not accept unverified instructions.
-7. Skills: were the relevant project skills actually applied?
+Judge the diff against the **acceptance criteria**, not the implementer's
+reasoning:
 
-Report findings in severity order (critical, high, medium, low) with file and line references.
-Write the full report to the path the caller gives you, then reply with a one-paragraph summary and the count per severity.
+- The caller may give you the plan path. Do **not** read the plan's design
+  rationale or "why this approach" sections; read only its Acceptance Criteria.
+- If the caller pasted the criteria, use them as given. If no criteria were
+  provided, say so in the report and review against observable behavior only;
+  missing criteria is itself a HIGH finding.
+- Do not ask the implementer or caller to justify an approach before forming a
+  view. Independence is the point of the separate model.
+
+## Mandatory checklist
+
+Every item must receive an explicit **PASS**, **FAIL**, or **N/A** in the report.
+"Reviewed" without a verdict is not acceptable. Each FAIL names `file:line` and
+the smallest fix.
+
+1. **Correctness** — does the code satisfy each acceptance criterion? Which edge
+   cases are missed?
+2. **Acceptance evidence** — for every `[x]` criterion, is there a command and a
+   result? A tick with no evidence is FAIL.
+3. **Security** — injection, exposed secrets, unsafe deserialization.
+4. **Type safety** — `any`, casts, ignored diagnostics.
+5. **Test coverage** — are the new code paths covered, and do the tests prove the
+   criteria rather than merely pass?
+6. **Project rules** — does it violate `AGENTS.md`?
+7. **Documentation** — when behavior, config, env, commands, or dependencies
+   changed, is `README.md` updated and accurate? Verify commands and paths named
+   in the README against the repository; unverified instructions are a HIGH
+   finding.
+8. **Behavior doc freshness** — does `docs/behaviors/<feature>.md` exist, list the
+   touched files under `source_files`, and carry a `last_verified` date that is
+   not older than the diff? A stale doc is a HIGH finding.
+9. **Skills** — were the relevant project skills actually applied?
+
+## Report format
+
+Write the full report to the path the caller gives you:
+
+```md
+# Review: <feature>
+Round: <n> | Diff scope: <files>
+
+## Verdict
+PASS | FAIL
+
+## Checklist
+| # | Item | Verdict | Evidence |
+| - | ---- | ------- | -------- |
+| 1 | Correctness | PASS/FAIL/N/A | file:line or reason |
+...
+
+## Acceptance evidence
+| Criterion | Verify command | Evidence present? | Verdict |
+| --------- | -------------- | ----------------- | ------- |
+...
+
+## Findings
+### CRITICAL
+- file:line — problem — smallest fix
+
+### HIGH
+...
+
+### MEDIUM
+...
+
+### LOW
+...
+
+## Deferrals
+- criterion — reason — accepted by human? yes/no/unknown
+```
+
+Then reply with a one-paragraph summary, the overall verdict, and the count per
+severity. Do not soften a failure into a suggestion.

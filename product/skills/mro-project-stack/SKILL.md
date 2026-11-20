@@ -8,6 +8,9 @@ description: "Project tech stack and conventions. Load before designing or imple
 This file is a placeholder. Fill it in once, then keep it current. Do not invent
 a stack: if a value is unknown, leave it as `unknown` and say so.
 
+`node .opencode/scripts/mro-doctor.mjs` derives these facts from the manifest on
+demand; use it as a starting point, then confirm the result by reading the files.
+
 ## Recorded facts
 
 - Framework: unknown

@@ -9,6 +9,11 @@ Write it to `.opencode/plans/<kebab-case-feature>.md` and stop there. Do not edi
 
 Discover and load every project skill that applies before planning.
 
-Finish the plan with: files to change, tests to write, a mandatory Documentation
-impact section (README sections, config/env keys, behavior doc, draft changelog
-line), and open questions for the human.
+Finish the plan with:
+
+- **Acceptance Criteria**, one `- [ ]` bullet per observable outcome. Every
+  criterion needs a `verify:` field: a command in backticks, or
+  `manual: <exact thing to inspect>`. Use `[~]` only with a `reason:`.
+- **Documentation impact**: README sections, config/env keys, behavior doc
+  (`last_verified` + `source_files`), and a draft changelog line.
+- files to change, tests to write, and open questions for the human.
