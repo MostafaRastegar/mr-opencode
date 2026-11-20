@@ -179,6 +179,22 @@ Project skills are part of the instructions. Use them.
 - Report which skills were actually used; never claim to have used one you did
   not load.
 
+## Review policy
+
+Merge gating is defined in `REVIEW_POLICY.md` (this directory). It lists what
+must always block a change (security, missing tests, unverifiable code,
+unreviewed dependencies, contract violation, CI gaming, unresolved
+placeholders) and what must never block (personal style, "I would write it
+elsewhere," perfectionism). Every reviewer — human or agent — applies this
+policy identically.
+
+## Directory-level context
+
+When an agent enters a directory, it reads that directory's `AGENTS.md` first
+(if one exists) for local rules, then the root `AGENTS.md` for repository-wide
+rules. Directory-level `AGENTS.md` files override root rules only for scope,
+never for safety or review policy.
+
 ## Agent Handoff Protocol
 
 There are two supported paths. They share the same roles, so use whichever the
