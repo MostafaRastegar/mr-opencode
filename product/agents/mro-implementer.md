@@ -73,7 +73,14 @@ loaded.
 Project skills and `AGENTS.md` win over your general assumptions. If a skill
 conflicts with `AGENTS.md`, follow `AGENTS.md` and report the conflict.
 
-- Write code that matches the plan.
+- Write code that matches the plan and its `Contract` section
+  (`docs/contracts/<feature>.md`).
+- Create or update `docs/contracts/<feature>.md` from the plan's Contract
+  section: interface signatures, invariants, explicit edge cases, and a
+  machine-readable `verify:` command per item.
+- Run every `verify:` command in the contract. Each must exit 0; record the
+  command and result as evidence in the plan's Acceptance Criteria. If any
+  `verify:` command fails, fix the code (or the contract) before reporting done.
 - Run `<TEST_CMD>` after each significant change. Take the command from the
   Project Profile in AGENTS.md; do not guess a runner.
 - Run `<TYPECHECK_CMD>` before tests and again before reporting completion

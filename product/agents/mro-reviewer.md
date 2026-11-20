@@ -54,6 +54,21 @@ reasoning:
 - Do not ask the implementer or caller to justify an approach before forming a
   view. Independence is the point of the separate model.
 
+## Contract-first review
+
+The review unit is the contract (`docs/contracts/<feature>.md`), not the raw
+diff:
+
+1. Read and approve the contract file first. If the contract is missing,
+   incomplete, or any `verify:` command exits non-zero, report CRITICAL.
+2. Verify each contract item's `verify:` command has been run and exits 0.
+   A tick without command output is FAIL.
+3. Only then trace the **risky parts** of the diff (auth, payments, edge cases,
+   architecture drift). For `minimal` review_level, skip human diff reading
+   entirely; rely on automated checks.
+4. Do not read line-by-line for syntax, style, or type errors — those are the
+   linter's and typechecker's job.
+
 ## Mandatory checklist
 
 Every item must receive an explicit **PASS**, **FAIL**, or **N/A** in the report.
@@ -77,6 +92,10 @@ the smallest fix.
    touched files under `source_files`, and carry a `last_verified` date that is
    not older than the diff? A stale doc is a HIGH finding.
 9. **Skills** — were the relevant project skills actually applied?
+10. **Do NOT check** — syntax, formatting/style, type errors, or simple unit test
+    pass/fail. These are owned by the linter, typechecker, and test suite. Flagging
+    them as review findings is a misuse of reviewer time; if found, note them as
+    informational only and require the automatable tool to fix them.
 
 ## Report format
 

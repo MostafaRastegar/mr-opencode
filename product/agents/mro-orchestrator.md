@@ -195,12 +195,37 @@ back to the architect once instead of approving it.
 
 Record the plan hash, acceptance count, and phase in the state file. Append a log
 line. Present the human with: goal, files, key decisions, acceptance-criteria
-count, documentation impact, open questions. Then STOP. Do not launch the
-implementer until the human explicitly approves the plan.
+count, contract path, `review_level`, documentation impact, open questions. Then
+STOP. Do not launch the implementer until the human explicitly approves the plan.
+The human confirms `review_level`; the agent must not self-assign it.
+
+### 1.5. Risk triage (before implementation)
+
+Read the plan's `Contract` section and `review_level:` field, then verify it
+against the actual change:
+
+- `minimal`: < 50 lines changed, no auth/db/payments/migration/infra, no new
+  logic or API change → proceed to automated checks only; no human review.
+- `reviewed`: new logic, API change, or > 200 lines → human review focused on
+  risky parts (auth, payments, edge cases, architecture drift).
+- `full`: auth, payments, migration, infra, or contract change → paired human
+  review with real execution (curl against a running instance, actual test run).
+
+Record the confirmed `review_level` in the state file.
+
+### 1.6. Backpressure (before starting a new feature)
+
+Count features awaiting human review (state phase is `review` or `implement`
+with `review_level` `reviewed` or `full`, and no completed review in the log).
+If that count reaches 3, do not start a new `reviewed` or `full` feature.
+Report the block to the human and wait for capacity before proceeding. This is
+the system's backpressure mechanism: review throughput caps implementation
+throughput.
 
 ### 2. Implement
 
-Only after explicit approval. Launch `mro-implementer` with:
+Only after explicit approval and after risk triage / backpressure pass. Launch
+`mro-implementer` with:
 
 - the plan path and the handoff block, including the available skills;
 - "Load every project skill that matches this task before coding."

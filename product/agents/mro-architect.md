@@ -106,6 +106,50 @@ Example:
 Do not write a criterion the Implementer can only "confirm by reading code". If
 that is genuinely the only option, use `manual:` and say so.
 
+## Contract section (mandatory)
+
+Every plan must include a `Contract` section written to
+`docs/contracts/<feature>.md`. The contract is the review unit: the human
+reviewer approves the contract, not the raw diff. The Contract section in the
+plan must summarize it and reference the file.
+
+The contract must include:
+
+1. **Interface signatures** — function/endpoint signatures (input, output,
+   error codes).
+2. **Invariants** — what must never change, stated as a single enforceable
+   sentence.
+3. **Explicit edge cases** — null, empty, concurrent, timeout, and boundary
+   values, each with expected behavior.
+4. **Machine-readable `verify:` command per item** — a test, `curl`, schema
+   comparison script, or other command that exits 0 when the item holds.
+5. **`review_level:`** — one of `minimal`, `reviewed`, or `full` (see below).
+   This is set by the Architect or the human at plan gate; it is never
+   self-assigned by the agent.
+
+Review levels:
+
+| Level | Criteria | Human review |
+| ----- | -------- | ------------ |
+| `minimal` | < 50 lines, no auth/db/new logic | None (automated only) |
+| `reviewed` | New logic, API change, or > 200 lines | Focused on risky parts |
+| `full` | Auth, payments, migration, infra, contract change | Paired + real execution |
+
+Example contract entry:
+
+```md
+## Contract: dashboard-redirect
+
+- Route: `GET /dashboard` (auth-required)
+- Invariant: A request without a valid session must redirect to `/login`
+  with `next=<original path>`; it must never render dashboard content.
+- Edge case: expired session token → redirect to `/login?next=/dashboard`.
+  — verify: `curl -i -b "session=expired" http://localhost:3000/dashboard | grep -E '^HTTP/.* 302'`
+- Edge case: `next` contains absolute URL → scheme stripped, relative path
+  echoed only. — verify: `pnpm test -k next-param-sanitize`
+- review_level: reviewed
+```
+
 ## Running as a subagent
 
 If your task contains an `Orchestration handoff` block, you are running under

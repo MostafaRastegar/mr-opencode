@@ -200,3 +200,24 @@ Run `python3 dev/scripts/opc-sync.py doctor` to verify.
 ## Rollout
 
 Pilot with 2-3 developers, then org-wide. Back up `~/.config/opencode/` before first pull.
+
+## Contract-based review
+
+`mr-opencode` replaces line-by-line diff review with **contract-based review**:
+
+- Every feature gets a machine-readable contract at `docs/contracts/<feature>.md`
+  (interface signatures, invariants, explicit edge cases, and a `verify:` command
+  per item). The human reviewer approves the contract, not the raw diff.
+- `REVIEW_POLICY.md` (repository root) defines what always blocks a merge and what
+  never blocks it. It applies identically to human and agent reviewers.
+- Each plan carries a `review_level:` field set by the Architect or the human at
+  plan gate — never self-assigned by the agent:
+  - `minimal` (< 50 lines, no auth/db/new logic) → automated checks only
+  - `reviewed` (new logic, API change, or > 200 lines) → focused human review
+  - `full` (auth, payments, migration, infra, contract change) → paired review
+    with real execution
+- The Orchestrator runs risk triage before implementation and enforces backpressure:
+  when 3 or more features await human review, no new `reviewed`/`full` feature
+  starts until capacity frees up.
+
+See `planing/human-review-sol.md` for the full design rationale.

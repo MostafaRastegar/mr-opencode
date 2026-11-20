@@ -309,6 +309,7 @@ Every completed feature leaves three durable records:
 | File | Written by | When | Purpose |
 | --- | --- | --- | --- |
 | `README.md` | Implementer | during implementation | install, run, config/env, usage, tests, limitations |
+| `docs/contracts/<feature>.md` | Architect + Implementer | during plan + implementation | interface signatures, invariants, edge cases, `verify:` commands; the unit reviewers approve |
 | `docs/behaviors/<feature>.md` | Implementer (`mro-behavior-docs`) | during implementation | per-feature behavior detail |
 | `CHANGELOG.md` | Implementer | only after final human approval | dated record of what changed, with test evidence and artifact paths |
 
@@ -345,6 +346,30 @@ names in every subagent handoff, because subagents start with fresh context.
 | `mro-data-model`            | the task touches queries, mutations, or schema                                      |
 | `mro-behavior-docs`         | when a feature's acceptance criteria are verified and it is time to record behavior |
 | `mro-code-review-checklist` | during review                                                                       |
+
+## Contracts and review levels
+
+The contract file `docs/contracts/<feature>.md` is mandatory for every plan.
+It contains:
+
+- interface signatures (input, output, error codes);
+- invariants — what must never change, as a single enforceable sentence;
+- explicit edge cases (null, empty, concurrent, timeout, boundary values),
+  each with expected behavior and a machine-readable `verify:` command;
+- `review_level:` — `minimal`, `reviewed`, or `full`, set by the Architect or
+  the human at plan gate (never self-assigned by the agent).
+
+Review levels drive the Orchestrator's risk triage and backpressure:
+
+| Level | Criteria | Human review |
+| ----- | -------- | ------------ |
+| `minimal` | < 50 lines, no auth/db/new logic | None (automated only) |
+| `reviewed` | new logic, API change, or > 200 lines | Focused on risky parts |
+| `full` | auth, payments, migration, infra, contract change | Paired + real execution |
+
+When 3+ features await human review, backpressure kicks in: no new
+`reviewed`/`full` feature starts until capacity frees up. See `REVIEW_POLICY.md`
+for the full block/never-block merge rules.
 
 `mro-project-stack` and `mro-data-model` are placeholders. Fill them in for the project,
 or leave the facts `unknown` and let the discovery procedure derive them from the
