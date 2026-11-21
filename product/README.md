@@ -85,15 +85,17 @@ Profile is the human-readable source; `.opencode/mro-profile.json` is what the
 plugin tools read. Keep them consistent (the doctor writes both).
 
 The shipped `providers.9router` block reads its credential from
-`ROUTER_API_KEY`. Export it in the environment or add it to `.env` (see
-`.env.example`), otherwise every `9router/*` model is unavailable.
+`ROUTER_API_KEY`. Whether that key is exported, added to `.env` (see
+`.env.example`), or replaced by another provider is the human's own
+configuration; agents never ask for it.
 
 Before a run, `node .opencode/scripts/mro-model-check.mjs` sends one minimal chat
-request to the gateway. Exit 0 means the model answers; exit 1 means the gateway
-returned an error (including "insufficient balance"); exit 2 means
-`ROUTER_API_KEY` is unset and the check was skipped. There is no automatic model
-fallback: a failed preflight stops the run so the human chooses, instead of a
-phase dying halfway and corrupting the state file.
+request to the gateway when a credential is configured. Exit 0 means the model
+answers; exit 1 means the gateway returned an error (including "insufficient
+balance"); exit 2 means no credential is configured, so the check is skipped and
+the run continues silently. There is no automatic model fallback: a failed
+preflight stops the run so the human chooses, instead of a phase dying halfway
+and corrupting the state file.
 
 The plugin configuration is a file, not code:
 

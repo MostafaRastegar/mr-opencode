@@ -12,14 +12,14 @@
  *   node .opencode/scripts/mro-model-check.mjs --base-url http://localhost:20128/v1
  *
  * Environment:
- *   ROUTER_API_KEY        credential (required; without it the check is skipped)
+ *   ROUTER_API_KEY        credential (optional; unset skips the check)
  *   MRO_MODEL_BASE_URL    overrides the default gateway URL
  *   MRO_MODEL             overrides the default model
  *
  * Exit codes:
  *   0  the model answered
  *   1  the gateway answered with an error, or the request failed
- *   2  skipped (no ROUTER_API_KEY)
+ *   2  skipped (no credential configured)
  */
 
 const argv = process.argv.slice(2);
@@ -35,9 +35,9 @@ const key = process.env.ROUTER_API_KEY;
 const timeout = Number(argOf("--timeout", "15000"));
 
 if (!key) {
-  process.stdout.write(
-    "mro-model-check: skipped (ROUTER_API_KEY is unset). Set it before starting a run.\n",
-  );
+  // No credential means the human has not configured this gateway yet. That is
+  // their call, not a blocker: skip quietly instead of asking for a key.
+  process.stdout.write("mro-model-check: skipped (no gateway credential configured).\n");
   process.exit(2);
 }
 

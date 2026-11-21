@@ -11,8 +11,8 @@ Follow the Orchestrator phases and the handoff contract in your agent prompt.
    - run `node .opencode/scripts/mro-doctor.mjs`; exit 1 means stop and list the
      gaps (placeholders, missing profile, stale behavior docs);
    - run `node .opencode/scripts/mro-model-check.mjs --model 9router/deep` (and
-     `9router/nemo` when used); exit 1 stops the run, exit 2 means the key is
-     unset and the human decides;
+     `9router/nemo` when used); exit 1 stops the run, exit 2 means no credential
+     is configured and the check is skipped silently — never ask for a key;
    - read an existing `.opencode/plans/<slug>.orchestrator.json` when resuming;
    - inventory the available project skills.
 2. Plan: launch the `mro-architect` subagent with the available skills. Validate

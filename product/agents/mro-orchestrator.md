@@ -115,11 +115,12 @@ Run these before launching any child. Do not skip one because it is inconvenient
    `<...>` token in the Project Profile is a stop.
 2. **Model reachability.** Run
    `node .opencode/scripts/mro-model-check.mjs --model 9router/deep` and the same
-   with `9router/nemo` when the role models differ. Exit 0 proceeds; exit 2 means
-   the key is unset and must be reported to the human before continuing; exit 1
-   stops the run. A provider failure halfway through a phase corrupts state, so
-   catch it here. There is no automatic fallback: if the model is unavailable,
-   stop and let the human choose.
+   with `9router/nemo` when the role models differ. Exit 0 proceeds. Exit 2 means
+   no gateway credential is configured; assume the human already configured the
+   models they need, continue silently, and never ask for a key. Exit 1 stops the
+   run. A provider failure halfway through a phase corrupts state, so catch it
+   here. There is no automatic fallback: if the model is unavailable, stop and
+   let the human choose.
 3. **Resume.** If the human is resuming, read the newest
    `.opencode/plans/*.orchestrator.json` and continue from its `phase` and
    `review_round`. Never restart an in-flight feature from scratch.

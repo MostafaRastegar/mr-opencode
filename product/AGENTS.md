@@ -164,6 +164,10 @@ it only after the human gives final approval, and only then:
 `node .opencode/scripts/mro-doctor.mjs --init` before relying on them; the
 Orchestrator preflight fails while the profile is missing.
 
+Credentials (`ROUTER_API_KEY` and any provider key) are the human's own
+configuration. Agents never ask for them and never treat a missing key as a
+blocker: skip the dependent check silently and continue.
+
 ## Skills
 
 Project skills are part of the instructions. Use them.
