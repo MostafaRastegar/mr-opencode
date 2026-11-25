@@ -282,22 +282,32 @@ function readProfile(project) {
 
 const PROFILE_LINE = /^-\s*([^:]+):/;
 
-/** Placeholder tokens still present on Project Profile lines, with line numbers. */
+/**
+ * Placeholder tokens still present on Project Profile lines, with line numbers.
+ * Both the root AGENTS.md and the generic template copy in .opencode/ are
+ * checked: the template ships unfilled, and leaving it unfilled means every
+ * session re-derives the stack by hand.
+ */
 function findPlaceholders(project) {
-  const file = join(project, "AGENTS.md");
-  const body = text(file);
-  if (!body) return [{ line: 0, token: "<AGENTS.md missing>", text: "" }];
   const labels = new Set(Object.values(PROFILE_LABELS).flat());
   const found = [];
-  body.split(/\r?\n/).forEach((line, index) => {
-    const label = PROFILE_LINE.exec(line)?.[1]?.trim();
-    // Only the profile's own `- <Label>: ...` lines are authoritative. Other
-    // mentions of a token elsewhere in the file are prose, not an unfilled field.
-    if (!label || !labels.has(label)) return;
-    for (const token of line.match(/<[A-Z][A-Z0-9_]*>/g) ?? []) {
-      found.push({ line: index + 1, token, text: line.trim() });
+  for (const rel of ["AGENTS.md", ".opencode/AGENTS.md"]) {
+    const file = join(project, rel);
+    const body = text(file);
+    if (!body) {
+      if (rel === "AGENTS.md") found.push({ file: rel, line: 0, token: "<AGENTS.md missing>", text: "" });
+      continue;
     }
-  });
+    body.split(/\r?\n/).forEach((line, index) => {
+      const label = PROFILE_LINE.exec(line)?.[1]?.trim();
+      // Only the profile's own `- <Label>: ...` lines are authoritative. Other
+      // mentions of a token elsewhere in the file are prose, not an unfilled field.
+      if (!label || !labels.has(label)) return;
+      for (const token of line.match(/<[A-Z][A-Z0-9_]*>/g) ?? []) {
+        found.push({ file: rel, line: index + 1, token, text: line.trim() });
+      }
+    });
+  }
   return found;
 }
 
@@ -332,9 +342,77 @@ function behaviorDocs(project) {
   return { missing: false, stale, invalid };
 }
 
-function gapsFor(project, detected, profile, placeholders, docs) {
+/**
+ * Drift between the recorded project facts and the repository.
+ *
+ * Why: a project starts small and grows. The stack skill and the data-model
+ * skill are correct on the day they are written and silently wrong a month
+ * later. Detect that mechanically instead of trusting every session to notice.
+ *
+ * Two checks, both cheap and both tolerant of free prose:
+ * - a dependency named in the stack skill with a version that disagrees with
+ *   package.json;
+ * - an entity the schema defines (Prisma today) missing from the data-model
+ *   skill.
+ */
+function skillDrift(project) {
+  const drift = [];
+  const packageFile = join(project, "package.json");
+  const stackFile = join(project, ".opencode", "skills", "mro-project-stack", "SKILL.md");
+  const dataFile = join(project, ".opencode", "skills", "mro-data-model", "SKILL.md");
+
+  const manifest = text(packageFile);
+  const stack = text(stackFile);
+  if (manifest && stack) {
+    let parsed;
+    try {
+      parsed = JSON.parse(manifest);
+    } catch {
+      parsed = null;
+    }
+    const dependencies = { ...(parsed?.dependencies ?? {}), ...(parsed?.devDependencies ?? {}) };
+    for (const [name, version] of Object.entries(dependencies)) {
+      if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) continue;
+      // Scoped names would reduce to a generic word ("client", "core"), which
+      // matches prose all over a skill and reports false drift. Best-effort means
+      // false negatives, never false alarms.
+      if (name.startsWith("@")) continue;
+      const base = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (base.length < 3) continue;
+      const match = new RegExp(`\\b${base}[.\\w-]*\\s+(\\d+\\.\\d+\\.\\d+)`, "i").exec(stack);
+      if (match && match[1] !== version) {
+        drift.push({
+          file: ".opencode/skills/mro-project-stack/SKILL.md",
+          fact: name,
+          recorded: match[1],
+          actual: version,
+        });
+      }
+    }
+  }
+
+  const schemaFile = join(project, "prisma", "schema.prisma");
+  const schema = text(schemaFile);
+  const data = text(dataFile);
+  if (schema && data) {
+    for (const match of schema.matchAll(/^model\s+(\w+)\s*\{/gm)) {
+      const model = match[1];
+      if (new RegExp(`\\b${model}\\b`).test(data)) continue;
+      drift.push({
+        file: ".opencode/skills/mro-data-model/SKILL.md",
+        fact: `model ${model}`,
+        recorded: "missing",
+        actual: "present in prisma/schema.prisma",
+      });
+    }
+  }
+  return drift;
+}
+
+function gapsFor(project, detected, profile, placeholders, docs, drift) {
   const gaps = [];
-  for (const placeholder of placeholders) gaps.push(`AGENTS.md:${placeholder.line} still has ${placeholder.token}`);
+  for (const placeholder of placeholders)
+    gaps.push(`${placeholder.file}:${placeholder.line} still has ${placeholder.token}`);
   if (!profile) gaps.push(`${PROFILE_REL} is missing; db-status/check-file stay "not configured"`);
   const effective = { ...detected, ...(profile ?? {}) };
   if (!effective.test || effective.test === "-") gaps.push("test command is unknown");
@@ -345,6 +423,11 @@ function gapsFor(project, detected, profile, placeholders, docs) {
   if (docs.invalid.length) {
     for (const item of docs.invalid) gaps.push(`${item.file}: ${item.reason}`);
   }
+  for (const item of drift) {
+    gaps.push(
+      `${item.file} records ${item.fact} = ${item.recorded}, repository says ${item.actual} — run /mro-bootstrap in refresh mode`,
+    );
+  }
   return gaps;
 }
 
@@ -353,7 +436,8 @@ function report(project, { json, docs: checkDocs }) {
   const profile = readProfile(project);
   const placeholders = findPlaceholders(project);
   const docs = checkDocs ? behaviorDocs(project) : { missing: false, stale: [], invalid: [] };
-  const gaps = gapsFor(project, detected, profile, placeholders, docs);
+  const drift = skillDrift(project);
+  const gaps = gapsFor(project, detected, profile, placeholders, docs, drift);
   const effective = { ...detected, ...(profile ?? {}) };
   const tools = {
     "db-status": Boolean(effective.migrations?.length),
@@ -369,6 +453,7 @@ function report(project, { json, docs: checkDocs }) {
     profile,
     effective,
     placeholders,
+    drift,
     tools,
     docs,
     gaps,
@@ -388,6 +473,7 @@ function report(project, { json, docs: checkDocs }) {
   lines.push(`  profile       ${profile ? PROFILE_REL : `${PROFILE_REL} (missing)`}`);
   lines.push(`  db-status     ${tools["db-status"] ? "configured" : "not configured"}`);
   lines.push(`  check-file    ${tools["check-file"] ? "configured" : "not configured"}`);
+  lines.push(`  skills        ${drift.length === 0 ? "match the repository" : `${drift.length} fact(s) out of date`}`);
   if (checkDocs) {
     lines.push(`  behavior docs ${docs.missing ? "docs/behaviors/ missing" : `${docs.stale.length} stale, ${docs.invalid.length} invalid`}`);
   }

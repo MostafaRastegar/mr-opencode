@@ -10,7 +10,7 @@ This policy defines what **must** block a change and what **must not** block it.
 | B2 | **Missing or meaningless test for risky logic.** No test, or a test that does not assert the acceptance criterion. | Risky logic without proof is unreviewable. |
 | B3 | **Code the human merger cannot explain.** If the person merging cannot walk through what the code does, it cannot be owned. | Accountability requires understandability. |
 | B4 | **New dependency nobody has reviewed.** Supply-chain risk. | Unknown code enters the codebase. |
-| B5 | **Contract violation.** The implementation deviates from `docs/contracts/<feature>.md` or any `verify:` command exits non-zero. | Breaks the spec the human approved. |
+| B5 | **Contract violation.** The implementation deviates from the plan's `Contract` section (or `docs/contracts/<feature>.md` when one exists) or any `verify:` command exits non-zero. | Breaks the spec the human approved. |
 | B6 | **CI gaming.** Deleted tests, lowered coverage thresholds, `|| true` to mask failures, skipped type checks. | Invalidates the review signal itself. |
 | B7 | **Placeholder left in `AGENTS.md` or `.opencode/mro-profile.json`.** `<TEST_CMD>`, `<STACK>`, etc. unresolved. | Workflow cannot run end-to-end. |
 

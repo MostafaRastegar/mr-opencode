@@ -2,7 +2,7 @@
 description: "Independent read-only review: correctness, security, types, tests."
 mode: subagent
 model: 9router/nemo
-steps: 12
+steps: 40
 permissions:
   - action: edit
     resource: "*"
@@ -56,13 +56,16 @@ reasoning:
 
 ## Contract-first review
 
-The review unit is the contract (`docs/contracts/<feature>.md`), not the raw
-diff:
+The review unit is the contract — the plan's `Contract` section, or
+`docs/contracts/<feature>.md` when the plan set `review_level: full`. Not the raw
+diff.
 
-1. Read and approve the contract file first. If the contract is missing,
-   incomplete, or any `verify:` command exits non-zero, report CRITICAL.
-2. Verify each contract item's `verify:` command has been run and exits 0.
-   A tick without command output is FAIL.
+1. Read the contract first. Missing, incomplete, or an item with no `verify:` is
+   CRITICAL.
+2. Read the recorded evidence for each item: a `[x]` with a command and an exit
+   code passes; a tick with no evidence is FAIL. You do not re-run the commands —
+   the Implementer ran them once and the Orchestrator owns re-verification. If
+   the evidence is missing or contradictory, say which command is missing.
 3. Only then trace the **risky parts** of the diff (auth, payments, edge cases,
    architecture drift). For `minimal` review_level, skip human diff reading
    entirely; rely on automated checks.
@@ -138,3 +141,14 @@ PASS | FAIL
 
 Then reply with a one-paragraph summary, the overall verdict, and the count per
 severity. Do not soften a failure into a suggestion.
+
+## Two-gate rule
+
+If the plan has a `Stage UI (mock)` stage, first check
+`.opencode/plans/<slug>.orchestrator.json` for `approvals.ui`. Missing or null →
+report CRITICAL "UI gate not approved" and stop.
+
+While reviewing the UI stage, review UI only: empty/loading/error/success states,
+RTL, responsive behaviour, accessibility, dead controls, design-token drift, and
+any persistence leaking into the UI stage. Do not demand backend tests in the UI
+stage; do demand them once the backend stage is under review.

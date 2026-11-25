@@ -142,8 +142,8 @@ Project template (copied manually, see [Project install](#project-install)):
 
 - `product/AGENTS.md`, `product/configs/opencode.jsonc`, `.gitignore`,
   `.env.example`, `.githooks/`
-- `product/agents/` — architect, implementer, reviewer, test-runner
-- `product/commands/` — mro-plan-feature, mro-run-review, mro-fix-tests, mro-deliver
+- `product/agents/` — orchestrator, architect, implementer, reviewer, test-runner, bootstrap
+- `product/commands/` — mro-plan-feature, mro-run-review, mro-fix-tests, mro-deliver, mro-bootstrap, mro-status
 - `product/plugins/` — mro-protect-secrets, mro-test-feedback, mro-project-tools (JS)
 - `product/skills/` — mro-project-stack, mro-data-model, mro-behavior-docs, mro-code-review-checklist
 

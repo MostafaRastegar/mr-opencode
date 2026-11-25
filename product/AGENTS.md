@@ -6,10 +6,12 @@ This template is deliberately not tied to a language, runner, or framework. Fill
 in the values below, then delete this note. While any `<...>` token remains,
 agents must stop and ask the human instead of guessing a command.
 
-The supported way to fill them is `node .opencode/scripts/mro-doctor.mjs --init`
-(it detects the manifest, suggests commands, and writes both this profile and
-`.opencode/mro-profile.json`). `node .opencode/scripts/mro-doctor.mjs` checks for
-gaps and exits non-zero; the Orchestrator runs it as a hard preflight.
+The supported way to fill them is `/mro-bootstrap` (the `mro-bootstrap` agent):
+it reads the manifest, lockfile, schema and source tree, and records only what
+they prove. `node .opencode/scripts/mro-doctor.mjs --init` is the mechanical
+subset that only writes this profile and `.opencode/mro-profile.json`.
+`node .opencode/scripts/mro-doctor.mjs` checks for gaps and exits non-zero; the
+Orchestrator runs it as a hard preflight.
 
 - Stack: `<STACK>`
 - Primary language: `<LANGUAGE>`
@@ -31,8 +33,10 @@ gaps and exits non-zero; the Orchestrator runs it as a hard preflight.
 
 ## Testing
 
-- Every new function or module must have corresponding tests.
-- Run `<TEST_CMD>` before considering a task complete.
+- Test risky logic, not every function: authorization, money, time arithmetic,
+  migrations, untrusted input parsing, and any acceptance criterion with real
+  behavior. A test that only restates the implementation earns nothing.
+- Run `<TEST_CMD>` once before considering a task complete.
 - A failing run is surfaced automatically by the `mro-test-feedback` plugin. Treat that reminder as a hard stop, not a suggestion.
 - Before reporting, run the `secret-audit` tool on the working tree. Pattern
   detectors are best-effort (see README), so a clean result is not a guarantee.
@@ -63,7 +67,7 @@ The review loop is conditional, not a fixed single retry:
 
 - CRITICAL must reach zero before final approval.
 - Another round is allowed while the CRITICAL count strictly decreases, up to
-  three rounds total.
+  two rounds total.
 - If CRITICAL stays flat or rises, stop and ask the human.
 - HIGH findings do not block by themselves, but each one is either fixed or
   listed with a reason and explicitly accepted by the human. Never drop one
@@ -218,20 +222,23 @@ human asked for.
 4. Orchestrator launches the Implementer with the plan path, the available
    skills, and the README requirement. The Implementer does not launch the
    Reviewer: the Orchestrator owns review in this path.
-5. Orchestrator checks that `README.md` exists and matches the change, then
-   launches the Reviewer and Test Runner in parallel. The Reviewer gets the diff,
-   the acceptance criteria, and `AGENTS.md` — not the plan's rationale — so its
-   judgement stays independent. Reviewer writes to
-   `.opencode/reviews/<feature>.md`; Test Runner writes its log there too.
+5. The Implementer already ran typecheck, lint, build and the suite, and
+   reported the exit codes; the Orchestrator does not re-run them. It checks that
+   `README.md` exists and matches the change, then launches the Reviewer. The
+   Reviewer gets the diff, the acceptance criteria, the recorded evidence, and
+   `AGENTS.md` — not the plan's rationale — so its judgement stays independent.
+   Reviewer writes to `.opencode/reviews/<feature>.md`. `mro-test-runner` is on
+   demand: only when the evidence is missing, contradicted, or untrusted.
 6. Orchestrator sends CRITICAL/HIGH findings and failures back to the same
    Implementer session. The loop is conditional (see "Fix Loop"): another round is
-   allowed while CRITICAL decreases, up to three rounds; flat or rising CRITICAL
+   allowed while CRITICAL decreases, up to two rounds; flat or rising CRITICAL
    stops the run. CRITICAL must reach zero.
 7. Orchestrator reports evidence (test exit code, severity counts and round
    history, acceptance status, README state) and asks for final approval. It never
    pushes.
 8. After explicit final approval, the Orchestrator has the Implementer add the
-   `CHANGELOG.md` entry, verifies it, and only then marks the work done.
+   `CHANGELOG.md` entry, verifies it, then refreshes the template (see "Project
+   growth") and only then marks the work done.
 
 Subagents start with fresh context and cannot talk to the human, so every handoff
 must carry the feature slug, plan path, review path, diff scope, prior findings,
@@ -251,8 +258,23 @@ markdown note) and its audit trail is `.opencode/plans/<feature>.log.jsonl`.
 5. Reviewer writes findings to `.opencode/reviews/<feature>.md` (or `current.md`) and returns a one-paragraph summary.
 6. Implementer fixes every CRITICAL and HIGH finding, then re-runs the suite and
    the reviewer. The same conditional loop applies: another round while CRITICAL
-   decreases, at most three; flat or rising CRITICAL stops the run.
+   decreases, at most two; flat or rising CRITICAL stops the run.
 7. After the human gives final approval, Implementer adds the `CHANGELOG.md`
    entry. Do not write it before approval.
 
 `.opencode/plans/` and `.opencode/reviews/` are git-ignored scratch space, not deliverables.
+
+## Project growth
+
+A project starts small and its technical facts keep changing; the template and
+the skills must not go stale.
+
+- At the end of every working period, `node .opencode/scripts/mro-doctor.mjs`
+  must exit 0.
+- If it reports drift (a dependency version, an entity, a command, or a profile
+  value that no longer matches the repository), run `/mro-bootstrap` in refresh
+  mode. It changes only the expired facts and writes no new prose.
+- A stale fact is worse than no fact: a fact that is no longer in the repository
+  is removed, not kept.
+- Criterion: after every feature, `.opencode/skills/mro-*` says the same thing
+  `package.json`, the lockfile, and the schema say.

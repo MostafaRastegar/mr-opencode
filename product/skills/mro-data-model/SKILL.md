@@ -5,9 +5,10 @@ description: "Data model and query rules. Load when designing queries, mutations
 
 # Data Model
 
-Authoritative source: `<SCHEMA_PATH>` (fill in — the schema file, ORM model
-directory, or migrations folder for this project). Read it before writing any
-query.
+Authoritative source: `<SCHEMA_PATH>` (fill in with `/mro-bootstrap` — the
+schema file, ORM model directory, or migrations folder for this project). Read it
+before writing any query. Refresh this file when the schema drifts; a stale
+entity list is worse than none.
 
 ## Entities
 

@@ -13,7 +13,7 @@ permissions:
     resource: ".opencode/plans/*"
     effect: allow
 
-  # Only the four role agents may be launched as subagents.
+  # Only the five role agents may be launched as subagents.
   - action: subagent
     resource: "*"
     effect: deny
@@ -28,6 +28,9 @@ permissions:
     effect: allow
   - action: subagent
     resource: "mro-test-runner"
+    effect: allow
+  - action: subagent
+    resource: "mro-bootstrap"
     effect: allow
 
   # Read-only git is enough to inspect the working tree. Everything else asks.
@@ -92,9 +95,9 @@ workflow, not the work. Delegate every plan, code change, review, and test run.
   `.opencode/plans/<slug>.log.jsonl` (structured log). Documentation is delegated
   to the Implementer.
 - Never run `git push`, `sudo`, or a destructive shell command.
-- Launch only `mro-architect`, `mro-implementer`, `mro-reviewer`, and
-  `mro-test-runner`, using the `subagent` tool. Never use a slash command: they
-  are user-invoked.
+- Launch only `mro-architect`, `mro-implementer`, `mro-reviewer`,
+  `mro-test-runner`, and `mro-bootstrap` (refresh only), using the `subagent`
+  tool. Never use a slash command: they are user-invoked.
 - Subagents have fresh context and cannot talk to the human. Every handoff must
   carry the block below, including file paths, not file contents.
 - Do not call a phase complete until every child you launched has returned.
@@ -135,7 +138,10 @@ Run these before launching any child. Do not skip one because it is inconvenient
    - changelog: `CHANGELOG.md`
 5. **Skills.** Inventory the available skills before delegating: read
    `.opencode/skills/` (the `read` tool lists a directory) plus any global skill
-   directory the harness exposes, and record their names.
+   directory the harness exposes, and record their names. If `mro-project-stack`
+   or `mro-data-model` still answers `unknown`, the template is unfilled: stop and
+   ask the human to run `/mro-bootstrap` once. Never let every role re-derive the
+   stack by hand.
 6. **State.** Create the JSON state file (schema below) before launching the
    first child. Write the phase and the plan hash after planning; you cannot
    recover either from scrollback after compaction.
@@ -159,7 +165,7 @@ Prefix every subagent task with this block and fill every field that applies:
 - Available skills: <comma-separated names; load every relevant one>
 - Diff scope: current working tree; include untracked files from `git status --short`
 - Prior findings: <path, or "none">
-- Review round: <0-3> of max 3
+- Review round: <0-2> of max 2
 - You are a subagent. Do not ask the human; return questions and blockers to the caller.
 - Do not launch other subagents.
 - Return only: paths, counts, command exit codes, skills loaded, blockers, and a short summary.
@@ -223,6 +229,19 @@ Report the block to the human and wait for capacity before proceeding. This is
 the system's backpressure mechanism: review throughput caps implementation
 throughput.
 
+### 1.7. UI gate (mock) — only for features with UI work
+
+If the plan has a `Stage UI (mock)` stage, the first implementation dispatch is
+that stage only. The Implementer runs typecheck/lint/build and returns
+`UI READY FOR DEMO`. You then present the routes, screens, states, the project's
+dev server command, and screenshots or a live demo, and STOP for human approval.
+
+Record `phase: "ui-mock"`, then on approval `phase: "ui-approved"` with
+`approvals.ui` = ISO timestamp. `approvals.ui` is a hard gate: `mro-reviewer`
+must raise CRITICAL when a plan has a `Stage UI (mock)` and `approvals.ui` is
+missing, and the phase becomes `blocked`. No backend stage, migration, reviewer
+or test-runner run before approval.
+
 ### 2. Implement
 
 Only after explicit approval and after risk triage / backpressure pass. Launch
@@ -241,12 +260,18 @@ Only after explicit approval and after risk triage / backpressure pass. Launch
 
 Wait for the report. If the implementer returns a blocker or an ambiguity, relay
 it to the human and stop. Then run `node .opencode/scripts/mro-doctor.mjs --docs`
-yourself; stale behavior docs are a gap, not a warning to ignore. Record changed
-files and exit codes in the state file.
+yourself and read only the entries for this feature. A stale doc for the file you
+just changed is a gap; pre-existing stale docs from older features are debt to
+report once, not a reason to block this run or to rewrite unrelated docs. Record
+changed files and exit codes in the state file.
+
+Never run `<TYPECHECK_CMD>`, `<LINT_CMD>`, `<BUILD_CMD>`, or `<TEST_CMD>` yourself.
+The Implementer runs them once and reports the exit codes. A second run here is
+duplicate work, not extra evidence.
 
 ### 3. Verify
 
-Before launching the reviewers, check the README yourself (read only):
+Before launching the reviewer, check the README yourself (read only):
 
 - `README.md` exists;
 - if the change is user-facing, the README section named in the plan changed;
@@ -255,12 +280,14 @@ Before launching the reviewers, check the README yourself (read only):
 If it is missing or stale, send it back to the same implementer session and
 re-check. Do not ask the reviewer to compensate for a missing README.
 
-Then launch `mro-reviewer` and `mro-test-runner` in parallel. Give the reviewer
-the diff scope, the acceptance criteria (not the plan rationale), the review path,
-and the README requirement. Give the test-runner the test log path. Wait for both
-reports before deciding.
+Then launch `mro-reviewer` with the diff scope, the acceptance criteria (not the
+plan rationale), the review path, the Contract, and the README requirement.
 
-### 4. Fix loop (conditional, max 3 rounds)
+`mro-test-runner` is on demand, not a phase: launch it only when the Implementer's
+report has no exit code, the log contradicts the claim, or the reviewer says the
+evidence cannot be trusted. The Implementer already ran the suite.
+
+### 4. Fix loop (conditional, max 2 rounds)
 
 The loop is evidence-driven, not fixed at one retry:
 
@@ -269,9 +296,9 @@ The loop is evidence-driven, not fixed at one retry:
 2. Continue the same implementer session (pass its `sessionID`) with the review
    path, the failing test log path, and the instruction to fix only those findings
    and re-run the suite.
-3. Run the test-runner again, then the reviewer again.
+3. Re-run the reviewer (and the test-runner only when its evidence was the gap).
 4. Compare the CRITICAL count with the previous round:
-   - **CRITICAL decreased** → another round is allowed while `review_round < 3`.
+   - **CRITICAL decreased** → another round is allowed while `review_round < 2`.
    - **CRITICAL unchanged or increased** → stop immediately and ask the human.
    - **CRITICAL = 0** → the loop exits even if HIGH findings remain.
 5. HIGH findings do not block the loop by themselves. At exit, either fix them or
@@ -281,7 +308,7 @@ The loop is evidence-driven, not fixed at one retry:
    `blocked`, not `done`.
 
 Record `review_round` and `severity_history` after every round. Never start a
-fourth review round.
+third review round.
 
 ### 5. Done
 
@@ -293,6 +320,7 @@ Report, in this order:
 - review path and counts per severity, including the round history;
 - README path and state: created, updated, or unchanged with a reason;
 - behavior doc path and its `last_verified` date;
+- skills refresh: which facts changed, or "already current";
 - anything explicitly deferred, with the human's decision if given.
 
 Ask the human for final approval. Do not write the changelog yet, and never run
@@ -311,8 +339,18 @@ implementer session (pass its `sessionID`) with:
 
 Then verify yourself: `CHANGELOG.md` exists, the new section is at the top, it has
 a date and the feature name, and it lists the evidence. If it is missing or
-generic, send it back once. Update the state file to `done`, append the final log
-line, and report the changelog path.
+generic, send it back once.
+
+Then refresh the template. The project grows, so a stack version, a command, or
+a model recorded in `.opencode/skills/mro-*` may be stale after this feature.
+Launch `mro-bootstrap` with the handoff and the two words "refresh mode". It
+returns one line per changed fact with its source. Re-run
+`node .opencode/scripts/mro-doctor.mjs` yourself; exit 0 is required. A skill
+that no longer matches the repository blocks the phase, exactly like a stale
+behavior doc.
+
+Update the state file to `done`, append the final log line, and report the
+changelog path and the refreshed facts.
 
 ## State file
 
@@ -344,8 +382,11 @@ phase. Keep it small:
   "severity_history": [
     { "round": 1, "critical": 2, "high": 3, "medium": 1, "low": 0 }
   ],
-  "approvals": { "plan": "<ISO timestamp or null>", "final": "<ISO timestamp or null>" },
-  "budget": { "turns_per_phase": 20, "review_rounds": 3 },
+  "approvals": {
+    "plan": "<ISO timestamp or null>",
+    "final": "<ISO timestamp or null>"
+  },
+  "budget": { "turns_per_phase": 20, "review_rounds": 2 },
   "log": ".opencode/plans/<slug>.log.jsonl",
   "blockers": "none"
 }
@@ -362,7 +403,15 @@ with `edit`; the `.opencode/plans/*` allow rule covers both. One object per line
 no pretty-printing:
 
 ```json
-{"at":"<ISO>","phase":"implement","sessions":{"implementer":"ses_..."},"changed_files":["..."],"exit_codes":[{"command":"...","exit":0}],"findings":{"critical":0,"high":0,"medium":0,"low":0},"blockers":"none"}
+{
+  "at": "<ISO>",
+  "phase": "implement",
+  "sessions": { "implementer": "ses_..." },
+  "changed_files": ["..."],
+  "exit_codes": [{ "command": "...", "exit": 0 }],
+  "findings": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
+  "blockers": "none"
+}
 ```
 
 The log is audit evidence. If a claim is not in the state file or the log, do not
@@ -372,7 +421,7 @@ present it as fact.
 
 - `turns_per_phase` (default 20) is a soft ceiling. If a child exceeds it, stop
   it, record why, and ask the human.
-- `review_rounds` is hard: 3.
+- `review_rounds` is hard: 2.
 - Two consecutive turns with no file edit and no command mean stop and report;
   do not keep re-planning.
 - A child that is blocked, ambiguous, or asks for a decision: stop, relay the

@@ -20,11 +20,11 @@ Copy them into a project by hand (see [Install](#install)).
 | Layer    | Files                                                                                  | Purpose                                         |
 | -------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | Config   | `configs/opencode.jsonc`, `AGENTS.md`, `.gitignore`, `.githooks/pre-commit`            | governance, standards, secret scan              |
-| Agents   | `agents/{mro-orchestrator,mro-architect,mro-implementer,mro-reviewer,mro-test-runner}.md`        | role, model, and permission separation          |
+| Agents   | `agents/{mro-orchestrator,mro-architect,mro-implementer,mro-reviewer,mro-test-runner,mro-bootstrap}.md` | role, model, and permission separation |
 | Skills   | `skills/{mro-project-stack,mro-data-model,mro-behavior-docs,mro-code-review-checklist}/SKILL.md`  | on-demand knowledge, no permanent context cost  |
-| Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-deliver,mro-status}.md` | user-invoked entry points                     |
+| Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points |
 | Plugins  | `plugins/{mro-protect-secrets,mro-test-feedback,mro-project-tools,mro-redact}/`                | secret blocking, failure feedback, custom tools, redaction |
-| Scripts  | `scripts/{mro-doctor,mro-model-check}.mjs`                                                | placeholder detection, profile writer, model preflight |
+| Scripts  | `scripts/{mro-doctor,mro-model-check}.mjs`                                                | placeholder and drift detection, profile writer, model preflight |
 | Tests    | `tests/*.test.mjs`                                                                     | self-tests for the template's own tools         |
 | Memory   | `.opencode/plans/`, `.opencode/reviews/`, `docs/behaviors/`                            | plans, state, review reports, behavior docs     |
 | Deliverables | `README.md`, `CHANGELOG.md`                                                        | product usage guide and completed-work history  |
@@ -55,10 +55,16 @@ Then fill in the placeholders (next section). Nothing else has to be installed
 for the workflow itself: it is plain Markdown, JSONC, and JavaScript. The helper
 scripts use Node.js built-ins only, so they run wherever `node` exists.
 
-`node .opencode/scripts/mro-doctor.mjs --init` fills both `AGENTS.md` and
-`.opencode/mro-profile.json` interactively; `--write` accepts every suggestion
-without prompting. `mro-doctor` never invents a value: an undetected field stays
-a `<...>` token and the check keeps failing.
+Run `/mro-bootstrap` once (the `mro-bootstrap` agent) to fill the template from
+the repository: the Project Profile, the stack and data-model skills, each
+agent's command allow-list, and the harness config. It records only what the
+manifest, lockfile, schema, and source tree prove; anything else stays `unknown`
+and is reported as a question for the human.
+
+`node .opencode/scripts/mro-doctor.mjs --init` is the mechanical subset: it fills
+`AGENTS.md` and `.opencode/mro-profile.json` interactively; `--write` accepts
+every suggestion without prompting. `mro-doctor` never invents a value: an
+undetected field stays a `<...>` token and the check keeps failing.
 
 ## Fill-in checklist
 
@@ -83,6 +89,21 @@ machine check: it exits 0 only when every placeholder is filled and the profile
 exists, and the Orchestrator runs it as a hard preflight. The `AGENTS.md` Project
 Profile is the human-readable source; `.opencode/mro-profile.json` is what the
 plugin tools read. Keep them consistent (the doctor writes both).
+
+### Keeping the facts current
+
+A project starts small and its technical facts keep changing, so the template is
+not filled once and forgotten:
+
+- `mro-doctor` compares the recorded facts with the repository: a dependency
+  version in `mro-project-stack` against the manifest, and an entity in
+  `mro-data-model` against the schema. A mismatch is printed as a drift line.
+- Run `/mro-bootstrap` again in **refresh mode** at the end of every working
+  period. It re-derives only the drifted or missing facts from their own source,
+  deletes a fact that no longer exists, and writes no new prose.
+- The Orchestrator runs the doctor before marking work done, and treats a skill
+  that no longer matches the repository as a blocking gap, exactly like a stale
+  behavior doc.
 
 The shipped `providers.9router` block reads its credential from
 `ROUTER_API_KEY`. Whether that key is exported, added to `.env` (see
@@ -121,6 +142,7 @@ honest gap, not a silent guess.
 | `mro-implementer` | all      | `9router/deep`      | source code               |
 | `mro-reviewer`    | subagent | `9router/nemo`      | only `.opencode/reviews/` |
 | `mro-test-runner` | subagent | `9router/nemo`      | only `.opencode/reviews/` |
+| `mro-bootstrap`   | all      | `9router/deep`      | profile, skills, agent allow-lists, harness config |
 
 `mode: all` means the Architect and Implementer can be selected as primary agents
 and launched as subagents by the Orchestrator. The Reviewer and Test Runner stay
@@ -133,11 +155,13 @@ approval:
 - it never edits source, only `.opencode/plans/<feature>.orchestrator.json`;
 - it runs a hard preflight (`mro-doctor`, `mro-model-check`) before launching any
   child, and resumes from the state file after a restart or compaction;
-- it may launch only the four role agents: `mro-architect`, `mro-implementer`,
-  `mro-reviewer`, and `mro-test-runner`;
-- it runs the Reviewer and Test Runner in parallel after implementation;
+- it may launch only the five role agents: `mro-architect`, `mro-implementer`,
+  `mro-reviewer`, `mro-test-runner`, and `mro-bootstrap` (refresh only);
+- the Implementer runs typecheck, lint, build, and the suite once and reports
+  the exit codes; the Orchestrator never re-runs them. It launches the Reviewer,
+  and launches the Test Runner only when that evidence is missing or untrusted;
 - the fix loop is conditional: the same implementer session gets the findings,
-  and another round is allowed while CRITICAL decreases, up to three rounds. Flat
+  and another round is allowed while CRITICAL decreases, up to two rounds. Flat
   or rising CRITICAL stops the run; CRITICAL must reach zero, while HIGH may be
   deferred only with the human's explicit agreement;
 - it never runs `git push` or `sudo`.
@@ -197,15 +221,16 @@ use `small_model`; it is deprecated in V2.
   return PASS/FAIL/N/A. `mro-test-runner` only executes the suite and writes its
   log.
 - CRITICAL must reach zero; HIGH findings are fixed or explicitly accepted as
-  deferrals. The loop continues while CRITICAL decreases, at most three rounds.
+  deferrals. The loop continues while CRITICAL decreases, at most two rounds.
 - Every agent repeats `git push *` and `sudo *` as `deny` at the end of its own
   permission list, because agent rules are appended after project rules and a
   broad `shell: "*"` would otherwise re-open them. `policies` back this up.
-- No test or typecheck command is pre-approved for any agent. The template does
-  not know your runner; add the `allow` rules once you fill in `<TEST_CMD>` and
-  friends. Examples are commented in each agent file.
-- New sessions start in the Orchestrator (`default_agent`). Use `/agent` to pick
-  the Architect for a manual plan, or `--agent build` for a plain session.
+- No runner is pre-approved in the shipped template: it does not know your
+  commands. `/mro-bootstrap` fills one `allow` rule per command from the Project
+  Profile; until then the rules stay commented and each run prompts.
+- New sessions start in `build`, with no project-manager preflight on every
+  question. Use `/mro-orchestrate` per feature (or set `default_agent` to
+  `mro-orchestrator` if you want the gated workflow as the default).
 
 ## Commands
 
@@ -261,15 +286,16 @@ prompt before the agent starts. Two limits matter:
 6. Orchestrator → Implementer: approved plan + available skills; no reviewer launch
 7. Implementer: code, check-file, typecheck, tests, check-acceptance, secret-audit,
    mro-behavior-docs, README update, return changed files and exit codes
-8. Orchestrator: verify README and `mro-doctor --docs`, then → Reviewer + Test
-   Runner in parallel
+8. Orchestrator: verify README and `mro-doctor --docs` for this feature, then →
+   Reviewer (Test Runner only when the evidence is missing or contradicted)
 9. Orchestrator → same Implementer session: fix CRITICAL/HIGH and failures
-10. Orchestrator → Test Runner, then Reviewer again; repeat while CRITICAL
-    decreases, at most three rounds
+10. Orchestrator → Reviewer again; repeat while CRITICAL decreases, at most two
+    rounds
 11. Orchestrator: report evidence including README state, ask for final approval
 12. Human: final approval
 13. Orchestrator → Implementer: changelog-only handoff
-14. Orchestrator: verify CHANGELOG.md entry, mark done
+14. Orchestrator: verify CHANGELOG.md entry → `/mro-bootstrap` refresh → doctor
+    exits 0 → mark done
 ```
 
 The Orchestrator owns the review and test gates. It never edits source, README,
@@ -294,7 +320,7 @@ marked done before the changelog entry exists.
     with the diff and the acceptance criteria, not the design rationale
 11. Reviewer: mro-code-review-checklist → PASS/FAIL/N/A per item → .opencode/reviews/
 12. Implementer: fixes CRITICAL/HIGH findings, re-runs the suite and the reviewer;
-    another round while CRITICAL decreases, at most three
+    another round while CRITICAL decreases, at most two
 13. Human: final approval
 14. Implementer: adds the CHANGELOG.md entry
 ```
@@ -311,7 +337,7 @@ Every completed feature leaves three durable records:
 | File | Written by | When | Purpose |
 | --- | --- | --- | --- |
 | `README.md` | Implementer | during implementation | install, run, config/env, usage, tests, limitations |
-| `docs/contracts/<feature>.md` | Architect + Implementer | during plan + implementation | interface signatures, invariants, edge cases, `verify:` commands; the unit reviewers approve |
+| `docs/contracts/<feature>.md` | Architect + Implementer | only when `review_level: full` | interface signatures, invariants, edge cases, `verify:` commands; the reviewers approve |
 | `docs/behaviors/<feature>.md` | Implementer (`mro-behavior-docs`) | during implementation | per-feature behavior detail |
 | `CHANGELOG.md` | Implementer | only after final human approval | dated record of what changed, with test evidence and artifact paths |
 
@@ -351,8 +377,10 @@ names in every subagent handoff, because subagents start with fresh context.
 
 ## Contracts and review levels
 
-The contract file `docs/contracts/<feature>.md` is mandatory for every plan.
-It contains:
+Every plan has a `Contract` section, and that section is the review unit the
+human approves. A separate `docs/contracts/<feature>.md` is written only when
+`review_level: full`; writing the same contract twice is duplication. The
+contract contains:
 
 - interface signatures (input, output, error codes);
 - invariants — what must never change, as a single enforceable sentence;
@@ -496,7 +524,7 @@ Three safeguards live in `AGENTS.md`:
 | ------------------------------------ | ------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
 | `providers`                          | 9Router             | one local OpenAI-compatible gateway and two models  | add your own provider, or point `settings.baseURL` at your gateway |
 | `model`                              | `9router/deep`      | an unpinned session can silently use a paid model   | any id from `opencode models`                                     |
-| `default_agent`                      | `mro-orchestrator`  | work starts with a plan and a human gate            | `mro-architect` for the manual flow, `build` for a plain session  |
+| `default_agent`                      | unset (`build`)     | no project-manager preflight on every question      | `mro-orchestrator` to make the gated workflow the default          |
 | `formatter`                          | `true`              | agent output matches project style                  | `false`, or configure per-language formatters                     |
 | `snapshots`                          | `true`              | `/undo` and `/redo` work without a commit           | `false` only if you always commit first                           |
 | `share`                              | `disabled`          | sessions contain code and can contain secrets       | `manual` to allow `/share`                                        |
@@ -546,12 +574,14 @@ sudo, the matching `policies` entry).
 
 Subagent launches use their own permission action: `action: subagent` with the
 agent id as `resource`. The Orchestrator denies `subagent: "*"` and then allows
-only `mro-architect`, `mro-implementer`, `mro-reviewer`, and `mro-test-runner`.
+only `mro-architect`, `mro-implementer`, `mro-reviewer`, `mro-test-runner`, and
+`mro-bootstrap` (refresh only).
 That is the allowlist that keeps it from spawning arbitrary helpers.
 
-No runner is pre-approved. Add one `allow` rule per command the Implementer and
-Test Runner should run without a prompt. In `opencode run` there is nobody to ask,
-so an unlisted command is rejected unless you pass `--auto`.
+No runner is pre-approved in the shipped template. `/mro-bootstrap` adds one
+`allow` rule per command the Implementer and Test Runner should run without a
+prompt, derived from the Project Profile. In `opencode run` there is nobody to
+ask, so an unlisted command is rejected unless you pass `--auto`.
 
 Limits worth knowing:
 
@@ -568,10 +598,11 @@ Limits worth knowing:
 The behavioural checks need a filled profile, because nothing is pre-approved:
 
 ```bash
-node .opencode/scripts/mro-doctor.mjs          # exit 0 only when no placeholder/profile gap remains
+node .opencode/scripts/mro-doctor.mjs          # exit 0 only when no placeholder/profile/drift gap remains
+opencode run "/mro-bootstrap"                  # fill once; run again in refresh mode when the doctor reports drift
 node .opencode/scripts/mro-model-check.mjs     # one-token gateway preflight
 opencode debug config      # opencode.jsonc discovered and parsed, providers.9router present
-opencode debug agents      # orchestrator / architect / implementer / reviewer / test-runner
+opencode debug agents      # orchestrator / architect / implementer / reviewer / test-runner / bootstrap
 opencode plugin list       # mro-protect-secrets, mro-test-feedback, mro-project-tools, mro-redact
 opencode run "/mro-orchestrate add a health endpoint"  # stops for plan approval
 # after implementation: README.md is current; after final approval: CHANGELOG.md entry exists
