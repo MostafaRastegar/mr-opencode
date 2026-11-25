@@ -158,6 +158,16 @@ Example contract entry:
 - review_level: reviewed
 ```
 
+## Manual Smoke Test Scenario (mandatory for backend changes)
+
+For any plan that changes backend logic (not `review_level: minimal`), add a section titled `## Manual Smoke Test Scenario` describing one simple, non-automated scenario the human can execute before automated tests are written. Include:
+
+- The exact command or steps (e.g. a `curl`, a browser action, a dev-server request)
+- The expected observable outcome
+- A `verify:` field of the form `manual: <what the human checks>`
+
+Label the corresponding acceptance criterion `[manual]`.
+
 ## UI features: two-stage plans
 
 If the request designs or changes the interface, the plan MUST contain two

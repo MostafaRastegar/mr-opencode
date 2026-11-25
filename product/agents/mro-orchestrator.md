@@ -384,6 +384,7 @@ phase. Keep it small:
   ],
   "approvals": {
     "plan": "<ISO timestamp or null>",
+    "manual_smoke": "<ISO timestamp or null>",
     "final": "<ISO timestamp or null>"
   },
   "budget": { "turns_per_phase": 20, "review_rounds": 2 },

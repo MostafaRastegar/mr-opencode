@@ -153,6 +153,8 @@ When a command fails (test, typecheck, build), follow this sequence:
 
 The Architect's plan has an "Acceptance Criteria" section. Before reporting completion:
 
+0. **Manual smoke test gate.** Run a minimal, non-automated scenario against the built/running code (e.g. a `curl` to a route, a small script, or a dev-server request). Present the exact command, the output, and the steps to the human. Wait for explicit confirmation that the scenario behaves correctly. Record `approvals.manual_smoke = <ISO timestamp>` in the state file. Only after human approval proceed to step 1.
+
 1. Run the `check-acceptance` tool on the plan file. Read the fields, not just the
    count:
    - every `verify:` command must be run through the normal shell rules;

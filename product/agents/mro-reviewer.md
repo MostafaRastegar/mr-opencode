@@ -144,6 +144,8 @@ severity. Do not soften a failure into a suggestion.
 
 ## Two-gate rule
 
+**Manual smoke test gate:** If the change touches backend logic and `review_level` is not `minimal`, check `.opencode/plans/<slug>.orchestrator.json` for `approvals.manual_smoke`. Missing or null → report CRITICAL "Manual smoke test not approved" and stop.
+
 If the plan has a `Stage UI (mock)` stage, first check
 `.opencode/plans/<slug>.orchestrator.json` for `approvals.ui`. Missing or null →
 report CRITICAL "UI gate not approved" and stop.
