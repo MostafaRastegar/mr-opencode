@@ -53,7 +53,7 @@
 | **پیکربندی**  | `opencode.jsonc`، `AGENTS.md`                                   | حاکمیت، استانداردها، مدل مجوزها                    |
 | **Agentها**   | Architect، Implementer، Reviewer، TestRunner                    | تفکیک نقش، مدل، و سطح دسترسی                       |
 | **Skillها**   | mro-project-stack، mro-data-model، mro-behavior-docs، mro-code-review-checklist | دانش on-demand (فقط وقتی لازم است بارگذاری می‌شود) |
-| **Commandها** | `/mro-plan-feature`، `/mro-run-review`، `/mro-fix-tests`، `/mro-deliver`        | نقاط ورود یکپارچه برای توسعه‌دهنده                 |
+| **Commandها** | `/mro-plan-feature`، `/mro-run-review`، `/mro-fix-tests`، `/mro-debug`، `/mro-deliver`        | نقاط ورود یکپارچه برای توسعه‌دهنده                 |
 | **Pluginها**  | mro-protect-secrets، mro-test-feedback، mro-project-tools                   | دفاع امنیتی، بازخورد خودکار، ابزارهای سفارشی       |
 | **حافظه**     | `plans/`، `reviews/`، `docs/behaviors/`                         | ثبت تصمیمات، بررسی‌ها، و رفتار محصول               |
 

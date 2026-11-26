@@ -22,7 +22,7 @@ Copy them into a project by hand (see [Install](#install)).
 | Config   | `configs/opencode.jsonc`, `AGENTS.md`, `.gitignore`, `.githooks/pre-commit`            | governance, standards, secret scan              |
 | Agents   | `agents/{mro-orchestrator,mro-architect,mro-implementer,mro-reviewer,mro-test-runner,mro-bootstrap}.md` | role, model, and permission separation |
 | Skills   | `skills/{mro-project-stack,mro-data-model,mro-behavior-docs,mro-code-review-checklist}/SKILL.md`  | on-demand knowledge, no permanent context cost  |
-| Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points |
+| Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-debug,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points |
 | Plugins  | `plugins/{mro-protect-secrets,mro-test-feedback,mro-project-tools,mro-redact}/`                | secret blocking, failure feedback, custom tools, redaction |
 | Scripts  | `scripts/{mro-doctor,mro-model-check}.mjs`                                                | placeholder and drift detection, profile writer, model preflight |
 | Tests    | `tests/*.test.mjs`                                                                     | self-tests for the template's own tools         |
@@ -241,6 +241,7 @@ use `small_model`; it is deprecated in V2.
 | `/mro-plan-feature <text>` | architect    | write a plan to `.opencode/plans/`                                   |
 | `/mro-run-review`          | reviewer     | review the diff, write `.opencode/reviews/current.md`                |
 | `/mro-fix-tests [cmd]`     | implementer  | run the suite and fix failures without weakening tests               |
+| `/mro-debug <bug>`         | implementer  | locate a bug, explain the cause, get approval, minimal fix, then manual check |
 | `/mro-deliver`             | implementer  | status + README + `<TEST_CMD>` + reviewer + changelog after approval |
 
 `/mro-orchestrate` is the one-shot entry point: it launches the Architect,
@@ -248,6 +249,12 @@ stops for plan approval, then launches the Implementer, checks the README, runs
 the Reviewer and Test Runner, and adds the changelog entry after final approval.
 The manual commands are unchanged; they are useful when you want to drive one role
 at a time.
+
+`/mro-debug <bug>` is the opposite of a delivery: it locates the cause with `grep`,
+states it with `file:line`, and stops for approval before any edit. It writes no new
+tests unless you ask, and after the fix it reports the exact manual check instead of
+claiming success; the doc and skill updates that prevent the same bug are proposed
+only after you confirm the fix.
 
 Commands are user-invoked. The Implementer cannot run them; it launches the
 `mro-reviewer` subagent instead (see the Handoff Protocol in `AGENTS.md`). This is
