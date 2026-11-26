@@ -74,6 +74,22 @@ The review loop is conditional, not a fixed single retry:
   silently.
 - Record the round and severity counts in the orchestration state file.
 
+## Manual gates
+
+Two human approvals are hard gates. `mro-reviewer` reads them from
+`.opencode/plans/<feature>.orchestrator.json` and reports CRITICAL when one that
+this change needs is missing or `null`, which stops the run:
+
+- **UI mock** — a plan with a `Stage UI (mock)` stage stops after the demo and
+  before any backend, migration, review, or test work. Record `approvals.ui`.
+- **Manual smoke test** — a change that touches backend logic and is not
+  `review_level: minimal` shows one non-automated scenario (exact command,
+  output, expected outcome) and waits for the human's confirmation before the
+  acceptance criteria are checked. Record `approvals.manual_smoke`.
+
+Never record an approval the human did not give, and never work around a gate by
+editing the state file instead of asking.
+
 ## Type Checking & Diagnostics
 
 - Run `<TYPECHECK_CMD>` before reporting completion; skip it when the profile

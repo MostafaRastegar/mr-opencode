@@ -25,7 +25,7 @@ Copy them into a project by hand (see [Install](#install)).
 | Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-debug,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points |
 | Plugins  | `plugins/{mro-protect-secrets,mro-test-feedback,mro-project-tools,mro-redact}/`                | secret blocking, failure feedback, custom tools, redaction |
 | Scripts  | `scripts/{mro-doctor,mro-model-check}.mjs`                                                | placeholder and drift detection, profile writer, model preflight |
-| Tests    | `tests/*.test.mjs`                                                                     | self-tests for the template's own tools         |
+| Tests    | `tests/*.test.mjs` (in the mr-opencode repo; not copied by Install)                       | self-tests for the template's own tools         |
 | Memory   | `.opencode/plans/`, `.opencode/reviews/`, `docs/behaviors/`                            | plans, state, review reports, behavior docs     |
 | Deliverables | `README.md`, `CHANGELOG.md`                                                        | product usage guide and completed-work history  |
 
@@ -38,7 +38,7 @@ skill runs.
 ```bash
 cd /path/to/mr-opencode
 mkdir -p /path/to/new-project/.opencode/{agents,commands,plugins,skills,scripts}
-cp -r product/agents/.   /path/to/new-project/.opencode/agents/
+cp    product/agents/mro-*.md   /path/to/new-project/.opencode/agents/
 cp -r product/commands/. /path/to/new-project/.opencode/commands/
 cp -r product/plugins/.  /path/to/new-project/.opencode/plugins/
 cp -r product/skills/.   /path/to/new-project/.opencode/skills/
@@ -50,6 +50,9 @@ cd /path/to/new-project
 git init                              # required: undo/revert depends on Git
 git config core.hooksPath .githooks   # enables the pre-commit secret scan
 ```
+
+Skip `product/agents/codebase-memory*.md`: those are the repository's global
+agents, not part of a project.
 
 Then fill in the placeholders (next section). Nothing else has to be installed
 for the workflow itself: it is plain Markdown, JSONC, and JavaScript. The helper
@@ -155,6 +158,16 @@ approval:
 - it never edits source, only `.opencode/plans/<feature>.orchestrator.json`;
 - it runs a hard preflight (`mro-doctor`, `mro-model-check`) before launching any
   child, and resumes from the state file after a restart or compaction;
+- two manual gates stop the run when they apply, and the Reviewer reports
+  CRITICAL while one is missing:
+  - **UI mock gate** — a plan with a `Stage UI (mock)` stage demos the routes,
+    screens, states, and dev server first; no backend stage, review, or test run
+    happens until the demo is approved (`approvals.ui`);
+  - **manual smoke test gate** — for backend changes that are not
+    `review_level: minimal`, the Implementer runs one non-automated scenario (a
+    `curl`, a script, a dev-server request), shows the command and the output,
+    and waits for the human's confirmation (`approvals.manual_smoke`) before it
+    runs the acceptance criteria;
 - it may launch only the five role agents: `mro-architect`, `mro-implementer`,
   `mro-reviewer`, `mro-test-runner`, and `mro-bootstrap` (refresh only);
 - the Implementer runs typecheck, lint, build, and the suite once and reports
@@ -169,8 +182,12 @@ approval:
 Every phase transition rewrites `.opencode/plans/<feature>.orchestrator.json` and
 appends one JSON line to `.opencode/plans/<feature>.log.jsonl`. The state file is
 the durable source of truth: phase, plan hash, sessions, acceptance counts, changed
-files, exit codes, review round, and severity history. `/mro-status` renders it, so
-a human can see where the run stands without reading the transcript.
+files, exit codes, review round, severity history, the `approvals` object
+(`plan`, `ui`, `manual_smoke`, `final` — each an ISO timestamp or `null`), and the
+review budget. `/mro-status` renders it, so a human can see where the run stands
+without reading the transcript. A missing `approvals.ui` moves the phase to
+`blocked`; a missing `approvals.manual_smoke` is a CRITICAL review finding.
+Either way the run stops instead of continuing silently.
 
 The Reviewer is **blind**: it gets the diff, the acceptance criteria, and
 `AGENTS.md`, not the plan's design rationale. A separate model helps only if it
@@ -219,7 +236,9 @@ use `small_model`; it is deprecated in V2.
 - The Reviewer gets a different model *and* a blind brief: the diff, the acceptance
   criteria, and `AGENTS.md`, not the plan's rationale. Each checklist item must
   return PASS/FAIL/N/A. `mro-test-runner` only executes the suite and writes its
-  log.
+  log. It also applies the two-gate rule: a `Stage UI (mock)` plan without
+  `approvals.ui`, or a non-`minimal` backend change without
+  `approvals.manual_smoke`, is CRITICAL and stops the review.
 - CRITICAL must reach zero; HIGH findings are fixed or explicitly accepted as
   deferrals. The loop continues while CRITICAL decreases, at most two rounds.
 - Every agent repeats `git push *` and `sudo *` as `deny` at the end of its own
@@ -287,21 +306,29 @@ prompt before the agent starts. Two limits matter:
 2. Orchestrator: hard preflight (`mro-doctor`, `mro-model-check`), inventory
    skills, read a prior state file when resuming, write the new state file
 3. Orchestrator → Architect: plan + Acceptance Criteria (each with `verify:`) +
-   Documentation impact
+   Documentation impact + Manual Smoke Test Scenario (backend changes)
 4. Orchestrator: validate the plan, present it, STOP
-5. Human: approve the plan
-6. Orchestrator → Implementer: approved plan + available skills; no reviewer launch
-7. Implementer: code, check-file, typecheck, tests, check-acceptance, secret-audit,
-   mro-behavior-docs, README update, return changed files and exit codes
-8. Orchestrator: verify README and `mro-doctor --docs` for this feature, then →
-   Reviewer (Test Runner only when the evidence is missing or contradicted)
-9. Orchestrator → same Implementer session: fix CRITICAL/HIGH and failures
-10. Orchestrator → Reviewer again; repeat while CRITICAL decreases, at most two
+5. Human: approve the plan (and confirm `review_level`)
+6. Orchestrator: risk triage on the confirmed `review_level`, then backpressure
+   (3+ features waiting for human review block a new `reviewed`/`full` feature)
+7. Orchestrator: UI gate when the plan has a `Stage UI (mock)` — the first
+   dispatch is that stage only, then STOP on `UI READY FOR DEMO` until the demo
+   is approved (`approvals.ui`)
+8. Orchestrator → Implementer: approved plan + available skills; no reviewer launch
+9. Implementer: manual smoke gate — for backend changes whose `review_level` is
+   not `minimal`, run the scenario, show the command and its output, wait for
+   the human's confirmation (`approvals.manual_smoke`)
+10. Implementer: code, check-file, typecheck, tests, check-acceptance, secret-audit,
+    mro-behavior-docs, README update, return changed files and exit codes
+11. Orchestrator: verify README and `mro-doctor --docs` for this feature, then →
+    Reviewer (Test Runner only when the evidence is missing or contradicted)
+12. Orchestrator → same Implementer session: fix CRITICAL/HIGH and failures
+13. Orchestrator → Reviewer again; repeat while CRITICAL decreases, at most two
     rounds
-11. Orchestrator: report evidence including README state, ask for final approval
-12. Human: final approval
-13. Orchestrator → Implementer: changelog-only handoff
-14. Orchestrator: verify CHANGELOG.md entry → `/mro-bootstrap` refresh → doctor
+14. Orchestrator: report evidence including README state, ask for final approval
+15. Human: final approval
+16. Orchestrator → Implementer: changelog-only handoff
+17. Orchestrator: verify CHANGELOG.md entry → `/mro-bootstrap` refresh → doctor
     exits 0 → mark done
 ```
 
@@ -309,7 +336,9 @@ The Orchestrator owns the review and test gates. It never edits source, README,
 or the changelog, and never pushes. CRITICAL findings must reach zero before final
 approval; a flat or rising CRITICAL count stops the loop and goes to the human, and
 HIGH findings are either fixed or explicitly accepted as deferrals. No work is
-marked done before the changelog entry exists.
+marked done before the changelog entry exists. The two manual gates are checked
+the same way: the Reviewer raises CRITICAL when `approvals.ui` or
+`approvals.manual_smoke` is missing for a change that needs it.
 
 ### Manual
 
@@ -336,6 +365,13 @@ Once a feature is implemented, `/mro-deliver` is the shortcut for steps 6 and
 9-12: it injects `git status`/`git diff --stat`, updates the README, runs
 `<TEST_CMD>`, launches the reviewer, loops on CRITICAL/HIGH findings, and adds the
 changelog entry after the human approves.
+
+Both manual gates apply here too. The Reviewer reads `approvals.ui` and
+`approvals.manual_smoke` from `.opencode/plans/<feature>.orchestrator.json` and
+returns CRITICAL when a gate that this change needs is missing or `null` — the
+file simply does not exist in a run that never went through `/mro-orchestrate`.
+So for a UI or backend change, either drive it with `/mro-orchestrate` or create
+that state file and record the approval timestamps before review.
 
 ### Documentation deliverables
 
@@ -606,6 +642,8 @@ The behavioural checks need a filled profile, because nothing is pre-approved:
 
 ```bash
 node .opencode/scripts/mro-doctor.mjs          # exit 0 only when no placeholder/profile/drift gap remains
+node .opencode/scripts/mro-doctor.mjs --json    # same report as machine-readable JSON
+node .opencode/scripts/mro-doctor.mjs --root /path/to/project  # check a project other than the cwd
 opencode run "/mro-bootstrap"                  # fill once; run again in refresh mode when the doctor reports drift
 node .opencode/scripts/mro-model-check.mjs     # one-token gateway preflight
 opencode debug config      # opencode.jsonc discovered and parsed, providers.9router present
@@ -628,17 +666,38 @@ opencode run "call the db-status tool and report the migration state"  # "not co
 opencode run "write secret.txt with sk-proj-AAAABBBBCCCCDDDDEEEEFFFF"   # must be blocked
 ```
 
-Template self-tests (no dependency, no project setup):
+`mro-doctor` flags:
+
+| flag | meaning |
+| ---- | ------- |
+| `--init` | interactive fill-in: detect the facts, prompt, then write `AGENTS.md` and `.opencode/mro-profile.json` |
+| `--write` (or `--yes`) | same as `--init` but accept every suggestion without prompting |
+| `--docs` | also report behavior docs whose `source_files` are newer than `last_verified` |
+| `--json` | emit the whole report as JSON for scripting |
+| `--root <dir>` | run against `<dir>` instead of the current working directory |
+
+Exit codes: `0` no gaps, `1` at least one gap, `2` no `AGENTS.md` in the target
+directory.
+
+`mro-model-check` flags and environment: `--base-url` (default
+`http://localhost:20128/v1`, env `MRO_MODEL_BASE_URL`), `--model` (default
+`9router/deep`, env `MRO_MODEL`), `--timeout` in ms (default `15000`). Exit codes:
+`0` the model answered, `1` the gateway errored or the request failed, `2` no
+credential configured, so the check is skipped.
+
+Template self-tests (no dependency, no project setup). They live in this
+repository, not in a project you installed the template into:
 
 ```bash
 node --test product/tests/*.test.mjs
 ```
 
 These tests cover the template's own logic: `check-acceptance` parsing and
-refusals, `mro-protect-secrets` positive/negative samples including base64, and
-`mro-doctor` detection plus profile writing against a temporary dummy project.
-They do not run an agent session, so they prove the tools, not the prompt
-behavior. Add an agent-level check when you change a prompt.
+refusals, `mro-protect-secrets` positive/negative samples including base64,
+`mro-doctor` detection plus profile writing against a temporary dummy project,
+and `mro-model-check`'s argument handling and skip paths. They do not run an
+agent session, so they prove the tools, not the prompt behavior. Add an
+agent-level check when you change a prompt.
 
 Pre-commit scan:
 
@@ -708,7 +767,7 @@ const TYPECHECK = {
 - `permissions` (array of `action`/`resource`/`effect`) is the V2 shape.
   `permission:` maps and `bash:` keys are V1 and deprecated.
 - No MCP servers are configured on purpose, to keep context small. Add one only
-  when a task needs it, under `mcp.servers`.
+  when a task needs it, under `mcp` in `opencode.jsonc`.
 - Web search is off until you set a provider and its key. `OPENCODE_ENABLE_EXA`
   is the V1 switch; do not use it in V2 config.
 - Secret defence is pattern-based and best-effort. `plugins/mro-protect-secrets/`

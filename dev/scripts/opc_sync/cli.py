@@ -5,11 +5,9 @@ import sys
 
 from .sync import SyncTool
 
-DEFAULT_REPO = "."
-# DEFAULT_TARGET = "~/.config/opencode"
-# DEFAULT_AGENTS_TARGET = "~/.agents"
-DEFAULT_TARGET = "./.opencode"
-DEFAULT_AGENTS_TARGET = "./.opencode"
+DEFAULT_REPO = "git@github.com:MostafaRastegar/mr-opencode.git"
+DEFAULT_TARGET = "~/.config/opencode"
+DEFAULT_AGENTS_TARGET = "~/.agents"
 DEFAULT_STAGING = "~/.cache/opc-sync"
 
 

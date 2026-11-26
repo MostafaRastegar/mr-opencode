@@ -12,7 +12,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from opc_sync import (
     SyncTool,
+    build_parser,
     file_hash,
+    find_skills_config,
     strip_jsonc_comments,
     deep_merge,
     collect_files,
@@ -110,6 +112,40 @@ class TestSyncToolInit(unittest.TestCase):
         self.assertEqual(tool.groups[4], ("product/commands", tool.target / "commands"))
         self.assertEqual(tool.groups[5], ("product/plugins", tool.target / "plugins"))
 
+
+class TestSkillsConfigLookup(unittest.TestCase):
+    def test_find_skills_config_flat_layout(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "configs").mkdir()
+            cfg = root / "configs" / "opencode.jsonc"
+            cfg.write_text('{"skills": []}')
+            self.assertEqual(find_skills_config(root), cfg)
+
+    def test_find_skills_config_product_layout(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "product" / "configs").mkdir(parents=True)
+            cfg = root / "product" / "configs" / "opencode.jsonc"
+            cfg.write_text('{"skills": []}')
+            self.assertEqual(find_skills_config(root), cfg)
+
+    def test_find_skills_config_missing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            self.assertIsNone(find_skills_config(Path(td)))
+
+
+class TestCliDefaults(unittest.TestCase):
+    def test_defaults_are_the_documented_global_paths(self):
+        """The README documents these defaults; changing one is a docs change."""
+        args = build_parser().parse_args(["status"])
+        self.assertEqual(args.repo, "git@github.com:MostafaRastegar/mr-opencode.git")
+        self.assertEqual(args.target, "~/.config/opencode")
+        self.assertEqual(args.agents_target, "~/.agents")
+        self.assertEqual(args.staging, "~/.cache/opc-sync")
 
 
 if __name__ == "__main__":

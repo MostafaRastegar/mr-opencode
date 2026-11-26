@@ -171,6 +171,13 @@
   // Change: add `{ "websearch": { "provider": "<PROVIDER_ID>" } }` and set the
   // paired `<PROVIDER>_API_KEY`; with no provider, the first search asks.
 
+  // HTTP skill catalog URLs, read by `opc-sync pull` from this file (a flat
+  // checkout reads configs/opencode.jsonc; this product/ layout is found too).
+  // Each catalog's index.json lists skill id/version/files. Uncomment to enable.
+  // "skills": [
+  //   "https://example.com/opencode/skills/"
+  // ],
+
   // Experimental settings; they may change or disappear between releases.
   // todo: gives agents a todowrite tool for multi-step work, which makes long
   // implementer runs visible step by step.

@@ -9,13 +9,27 @@ from .config import strip_jsonc_comments
 from .fs import atomic_write_text
 
 
+def find_skills_config(src_root):
+    """Return the source config that carries the `skills` array, or None.
+
+    The sync tool accepts both repo layouts: a flat checkout with `configs/` at
+    the root, and this repository's `product/` layout. Both are probed in that
+    order.
+    """
+    for rel in ("configs/opencode.jsonc", "product/configs/opencode.jsonc"):
+        candidate = src_root / rel
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def fetch_skill_catalogs(src_root, agents_target, dry_run=False):
-    """Download skills from HTTP catalog URLs listed in configs/opencode.jsonc.
+    """Download skills from HTTP catalog URLs listed in the source config.
 
     Returns 0 always (catalog failures are logged to stderr, not fatal).
     """
-    cfg = src_root / "configs" / "opencode.jsonc"
-    if not cfg.exists():
+    cfg = find_skills_config(src_root)
+    if cfg is None:
         return 0
     try:
         data = json.loads(strip_jsonc_comments(cfg.read_text(encoding="utf-8")))

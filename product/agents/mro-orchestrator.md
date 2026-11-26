@@ -361,7 +361,7 @@ phase. Keep it small:
 ```json
 {
   "feature": "<slug>",
-  "phase": "plan | plan-approved | implement | verify | fix | done | blocked",
+  "phase": "plan | plan-approved | ui-mock | ui-approved | implement | verify | fix | done | blocked",
   "plan": ".opencode/plans/<slug>.md",
   "plan_sha256": "<sha256 of the plan at approval>",
   "review": ".opencode/reviews/<slug>.md",
@@ -384,6 +384,7 @@ phase. Keep it small:
   ],
   "approvals": {
     "plan": "<ISO timestamp or null>",
+    "ui": "<ISO timestamp or null>",
     "manual_smoke": "<ISO timestamp or null>",
     "final": "<ISO timestamp or null>"
   },
