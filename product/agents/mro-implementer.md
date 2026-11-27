@@ -130,6 +130,21 @@ the Orchestrator:
 - Do not ask the human. Return questions to the caller; the Orchestrator relays
   them.
 
+### Effort levels
+
+The handoff carries `- Effort: <level>`. It changes the Definition of Done:
+
+- `quick` — locate, report the cause with `file:line`, and wait for approval
+  before editing. Then apply the one approved diff, run typecheck only when types
+  changed, and run the targeted test file. Write no new test, no behavior doc, no
+  `README.md`, and no changelog, and do not call `check-acceptance`. Skip the
+  manual smoke gate in step 0 and report `needs manual verification: <exact
+  steps>` instead. Stay inside the handoff's step budget and report.
+- `standard` — the full Definition of Done, without the project's e2e command;
+  note it as deferred.
+- `full` — the full Definition of Done, including the e2e command when the plan
+  asks for it.
+
 ## Self-Correction Protocol
 
 When a command fails (test, typecheck, build), follow this sequence:

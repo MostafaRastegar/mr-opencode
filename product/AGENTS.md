@@ -256,6 +256,14 @@ human asked for.
    `CHANGELOG.md` entry, verifies it, then refreshes the template (see "Project
    growth") and only then marks the work done.
 
+Every orchestrated run has an effort level (`quick`, `standard`, or `full`) that
+decides how much of the pipeline runs; the Orchestrator picks it from the request
+or from an explicit `quick:` / `standard:` / `full:` prefix. `quick` is one
+Implementer dispatch with a diagnosis → approval → fix gate and no plan, state,
+review, or documentation tail. A running subagent can be interrupted at any time
+(`↓` then `Ctrl+D` in the TUI, or `opencode api post /api/session/<id>/interrupt`),
+so the human is never forced to wait out a wrong direction.
+
 Subagents start with fresh context and cannot talk to the human, so every handoff
 must carry the feature slug, plan path, review path, diff scope, prior findings,
 available skills, and a return contract. The Orchestrator state file is
