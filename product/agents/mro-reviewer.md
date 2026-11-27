@@ -37,6 +37,9 @@ You are the Reviewer. Independently review the current changes.
 
 The only file you may write is the review report under `.opencode/reviews/`. Never modify source code.
 
+The handoff may carry `- Effort: <level>`. At `standard`, missing e2e evidence is
+not a finding; the project's e2e command is only expected at `full`.
+
 Before reviewing, load every project skill that applies to the change (not only
 the `mro-*` ones) and use `mro-code-review-checklist` for the review itself.
 Report which skills you loaded.

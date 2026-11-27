@@ -166,6 +166,37 @@ approval:
   deferred only with the human's explicit agreement;
 - it never runs `git push` or `sudo`.
 
+### Effort levels
+
+Every orchestrated run has one effort level, and the Orchestrator states it in one
+line before doing anything:
+
+| Level | Pipeline | Checks | Docs |
+| --- | --- | --- | --- |
+| `quick` | one Implementer dispatch; diagnosis → approval → fix | typecheck when types changed, plus the targeted test file | none |
+| `standard` | plan gate, implement, one review round | typecheck, lint, full suite, build | README when user-facing, behavior doc, changelog after approval |
+| `full` | plan gate, implement, review, fix loop | full gate plus the e2e command | same, plus the skill refresh |
+
+`quick` is for a bug or a small fix: no plan file, no state or log file, no
+reviewer, no new tests, and no README/behavior-doc/changelog/skill refresh. It
+still stops for approval between the diagnosis and the edit, so a wrong root cause
+costs one message instead of a full run. Override the classification with `quick:`,
+`standard:`, or `full:` as the first word of the request.
+
+### Stopping a running agent
+
+Subagents run in the background, but they are interruptible, so a wrong direction
+never has to run to completion:
+
+- TUI: press `↓` to open the subagent picker, select the running child, then
+  `Ctrl+D` (Interrupt subagent). Or open the child session and press `Esc`.
+- API: `opencode api post /api/session/<sessionID>/interrupt`. The state file
+  records every child session ID under `sessions`.
+- The child stops at that point and partial edits stay in the working tree.
+  Continue the same session with a corrected instruction, or discard the work.
+- Asking the Orchestrator to stop makes it interrupt every running child first and
+  then report; it never launches a replacement in the same turn.
+
 Every phase transition rewrites `.opencode/plans/<feature>.orchestrator.json` and
 appends one JSON line to `.opencode/plans/<feature>.log.jsonl`. The state file is
 the durable source of truth: phase, plan hash, sessions, acceptance counts, changed
@@ -236,7 +267,7 @@ use `small_model`; it is deprecated in V2.
 
 | Command                | Agent        | Purpose                                                              |
 | ---------------------- | ------------ | -------------------------------------------------------------------- |
-| `/mro-orchestrate <text>`  | orchestrator | plan, approve, implement, review, and test with human gates          |
+| `/mro-orchestrate <text>`  | orchestrator | plan, approve, implement, review, and test at the effort level the request needs |
 | `/mro-status`              | orchestrator | read the state file and report phase, remaining work, and blockers   |
 | `/mro-plan-feature <text>` | architect    | write a plan to `.opencode/plans/`                                   |
 | `/mro-run-review`          | reviewer     | review the diff, write `.opencode/reviews/current.md`                |
@@ -244,9 +275,17 @@ use `small_model`; it is deprecated in V2.
 | `/mro-debug <bug>`         | implementer  | locate a bug, explain the cause, get approval, minimal fix, then manual check |
 | `/mro-deliver`             | implementer  | status + README + `<TEST_CMD>` + reviewer + changelog after approval |
 
-`/mro-orchestrate` is the one-shot entry point: it launches the Architect,
-stops for plan approval, then launches the Implementer, checks the README, runs
-the Reviewer and Test Runner, and adds the changelog entry after final approval.
+`/mro-orchestrate` is the one-shot entry point: it picks an effort level
+(`quick`, `standard`, or `full`; override with `quick:` as the first word), then at
+`standard`/`full` launches the Architect, stops for plan approval, launches the
+Implementer, checks the README, runs the Reviewer and Test Runner, and adds the
+changelog entry after final approval. At `quick` it launches one Implementer,
+stops for diagnosis approval, and reports without a plan, review, or documentation
+tail.
+
+The effort level is not a quality setting: it decides how much of the pipeline
+runs. Asking for a one-line fix is a `quick` run by contract, and a review or a
+documentation tail on it is a defect.
 The manual commands are unchanged; they are useful when you want to drive one role
 at a time.
 
@@ -310,6 +349,24 @@ or the changelog, and never pushes. CRITICAL findings must reach zero before fin
 approval; a flat or rising CRITICAL count stops the loop and goes to the human, and
 HIGH findings are either fixed or explicitly accepted as deferrals. No work is
 marked done before the changelog entry exists.
+
+### Quick (effort `quick`)
+
+```
+1. Human: /mro-orchestrate "quick: <bug or small fix>"
+2. Orchestrator: mro-doctor, then classify and state the level
+3. Orchestrator → Implementer (one dispatch): locate the cause read-only, report
+   symptom + root cause with file:line + the proposed diff; no edit yet
+4. Human: approve the diagnosis
+5. Implementer: apply that one diff, typecheck when types changed, run the
+   targeted test file, report needs manual verification
+6. Orchestrator: report in the chat and stop
+```
+
+No plan file, no state or log file, no reviewer, no test runner, no new tests, and
+no README/behavior-doc/changelog/skill refresh. The diagnosis gate exists so a
+wrong root cause costs one message instead of a full run. When the change turns out
+to be larger than a small fix, stop and restart it as a `standard` run.
 
 ### Manual
 
