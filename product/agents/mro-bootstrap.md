@@ -146,6 +146,30 @@ as soon as `mro-doctor` reports a drift line.
 5. Re-run the doctor; exit 0 is required.
 6. Report one line per change: fact, old, new, source.
 
+## Lessons mode
+
+Refresh mode syncs facts; this mode distills behavior. It runs after the
+changelog when this feature's review had a CRITICAL or HIGH finding: a finding
+that was fixed and forgotten is a finding the next reviewer catches again.
+
+1. Read `.opencode/reviews/<slug>.md` — only the `### CRITICAL` and `### HIGH`
+   sections — plus `severity_history` in `.opencode/plans/<slug>.orchestrator.json`.
+2. Keep a finding only when it states a rule that would have prevented it. A
+   one-off coding slip is not a lesson; drop it.
+3. Append one line to the `## Pitfalls` section of the skill that owns that
+   area (create the section at the end of the file if it is missing), shaped:
+   `- <symptom> — <file:line root cause> — <rule that prevents it>.`
+   No skill owns the area → report it as a question for the human; never
+   create a file for it.
+4. Hard caps: 3 lines per run, 5 per skill, never `AGENTS.md`, never an agent
+   role file. A lesson that does not fit one line is not a lesson.
+5. Before writing the line, ask whether the rule can be an assertion instead —
+   `test/architecture.test.ts` or a check in `mro-doctor.mjs`. An enforced
+   check costs zero tokens on every run and cannot be ignored; propose that in
+   the report rather than writing the skill line.
+6. Report one line per lesson: skill path, the sentence, the finding it came
+   from. Zero findings → say "no lessons" and change nothing.
+
 ## Rules
 
 - Never invent. A fact you cannot derive stays `unknown` and goes in the report

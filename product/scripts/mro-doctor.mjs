@@ -13,6 +13,7 @@
  *   node .opencode/scripts/mro-doctor.mjs --init     # suggest + confirm + write
  *   node .opencode/scripts/mro-doctor.mjs --write    # write suggestions, no prompt
  *   node .opencode/scripts/mro-doctor.mjs --docs     # also check behavior-doc freshness
+ *   node .opencode/scripts/mro-doctor.mjs --deferrals # list open `- [~]` criteria
  *
  * What it never does: run the project's test/typecheck/build commands, edit
  * source code, or invent a value. Undetected fields stay as `<...>` tokens (or
@@ -21,7 +22,14 @@
  * No dependencies: node: builtins only.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -40,7 +48,13 @@ const PROFILE_LABELS = {
   languageRules: ["Language rules"],
 };
 
-const EXEC_COMMANDS = new Set(["test", "typecheck", "lint", "build", "migration"]);
+const EXEC_COMMANDS = new Set([
+  "test",
+  "typecheck",
+  "lint",
+  "build",
+  "migration",
+]);
 
 /** Split `pnpm exec tsc --noEmit` into { cmd, args } without a shell. */
 export function splitCommand(command) {
@@ -75,7 +89,10 @@ function detectNode(project) {
   const manifest = readJson(join(project, "package.json"));
   if (!manifest) return {};
 
-  const deps = { ...(manifest.dependencies ?? {}), ...(manifest.devDependencies ?? {}) };
+  const deps = {
+    ...(manifest.dependencies ?? {}),
+    ...(manifest.devDependencies ?? {}),
+  };
   const scripts = manifest.scripts ?? {};
   let pm = "npm";
   let lockfile = "package-lock.json";
@@ -92,21 +109,27 @@ function detectNode(project) {
       break;
     }
   }
-  if (!has(join(project, lockfile))) lockfile = manifest.packageManager?.split("@")[0] ?? lockfile;
+  if (!has(join(project, lockfile)))
+    lockfile = manifest.packageManager?.split("@")[0] ?? lockfile;
 
   const run = (name) => (scripts[name] ? `${pm} run ${name}` : null);
-  const exec = (name, args) => `${pm} exec ${name}${args?.length ? " " + args.join(" ") : ""}`;
-  const typescript = Boolean(deps.typescript) || has(join(project, "tsconfig.json"));
+  const exec = (name, args) =>
+    `${pm} exec ${name}${args?.length ? " " + args.join(" ") : ""}`;
+  const typescript =
+    Boolean(deps.typescript) || has(join(project, "tsconfig.json"));
 
   const result = {
     language: typescript ? "TypeScript" : "JavaScript",
     test: scripts.test ? `${pm} test` : null,
-    typecheck: run("typecheck") ??
-      (typescript ? exec("tsc", ["--noEmit"]) : null),
-    lint: run("lint") ??
-      (has(join(project, "eslint.config.js")) || has(join(project, "eslint.config.mjs")) ||
-        has(join(project, ".eslintrc")) || has(join(project, ".eslintrc.json")) ||
-        has(join(project, ".eslintrc.cjs"))
+    typecheck:
+      run("typecheck") ?? (typescript ? exec("tsc", ["--noEmit"]) : null),
+    lint:
+      run("lint") ??
+      (has(join(project, "eslint.config.js")) ||
+      has(join(project, "eslint.config.mjs")) ||
+      has(join(project, ".eslintrc")) ||
+      has(join(project, ".eslintrc.json")) ||
+      has(join(project, ".eslintrc.cjs"))
         ? exec("eslint", ["."])
         : null),
     build: run("build"),
@@ -114,15 +137,23 @@ function detectNode(project) {
   };
 
   const framework = [
-    ["next", "Next.js"], ["react", "React"], ["vue", "Vue"], ["svelte", "Svelte"],
-    ["@nestjs/core", "NestJS"], ["express", "Express"], ["fastify", "Fastify"],
+    ["next", "Next.js"],
+    ["react", "React"],
+    ["vue", "Vue"],
+    ["svelte", "Svelte"],
+    ["@nestjs/core", "NestJS"],
+    ["express", "Express"],
+    ["fastify", "Fastify"],
   ].find(([name]) => deps[name]);
   result.stack = framework
     ? `${framework[1]}${typescript ? " + TypeScript" : " + JavaScript"} (Node)`
     : `${typescript ? "Node.js + TypeScript" : "Node.js + JavaScript"}`;
 
-  if (typescript) result.languageRules = "strict mode; no any; explicit public types";
-  else result.languageRules = "follow the existing style; no new dependencies without approval";
+  if (typescript)
+    result.languageRules = "strict mode; no any; explicit public types";
+  else
+    result.languageRules =
+      "follow the existing style; no new dependencies without approval";
 
   if (result.typecheck) {
     result.typecheckRunner = {
@@ -133,11 +164,13 @@ function detectNode(project) {
 
   if (has(join(project, "prisma/schema.prisma"))) {
     result.migration = exec("prisma", ["migrate", "status"]);
-    result.migrations = [{
-      file: "prisma/schema.prisma",
-      label: "Prisma",
-      ...splitCommand(result.migration),
-    }];
+    result.migrations = [
+      {
+        file: "prisma/schema.prisma",
+        label: "Prisma",
+        ...splitCommand(result.migration),
+      },
+    ];
   }
   return result;
 }
@@ -145,10 +178,13 @@ function detectNode(project) {
 function detectPython(project) {
   const pyproject = join(project, "pyproject.toml");
   const requirements = join(project, "requirements.txt");
-  if (!has(pyproject) && !has(requirements) && !has(join(project, "setup.py"))) return {};
+  if (!has(pyproject) && !has(requirements) && !has(join(project, "setup.py")))
+    return {};
   const body = `${text(pyproject)}\n${text(requirements)}`.toLowerCase();
-  const lockfile = ["uv.lock", "poetry.lock", "Pipfile.lock", "requirements.txt"]
-    .find((name) => has(join(project, name))) ?? "requirements.txt";
+  const lockfile =
+    ["uv.lock", "poetry.lock", "Pipfile.lock", "requirements.txt"].find(
+      (name) => has(join(project, name)),
+    ) ?? "requirements.txt";
   const result = {
     stack: "Python",
     language: "Python",
@@ -157,11 +193,18 @@ function detectPython(project) {
     lint: body.includes("ruff") ? "ruff check ." : null,
     build: null,
     lockfile,
-    languageRules: "type hints on public functions; no bare except; follow existing style",
+    languageRules:
+      "type hints on public functions; no bare except; follow existing style",
   };
   if (has(join(project, "alembic.ini"))) {
     result.migration = "alembic current";
-    result.migrations = [{ file: "alembic.ini", label: "Alembic", ...splitCommand("alembic current") }];
+    result.migrations = [
+      {
+        file: "alembic.ini",
+        label: "Alembic",
+        ...splitCommand("alembic current"),
+      },
+    ];
   }
   return result;
 }
@@ -173,11 +216,15 @@ function detectGo(project) {
     language: "Go",
     test: "go test ./...",
     typecheck: "go vet ./...",
-    lint: has(join(project, ".golangci.yml")) || has(join(project, ".golangci.yaml"))
-      ? "golangci-lint run" : null,
+    lint:
+      has(join(project, ".golangci.yml")) ||
+      has(join(project, ".golangci.yaml"))
+        ? "golangci-lint run"
+        : null,
     build: "go build ./...",
     lockfile: "go.sum",
-    languageRules: "gofmt; return errors instead of panicking; no discarded errors",
+    languageRules:
+      "gofmt; return errors instead of panicking; no discarded errors",
   };
   return result;
 }
@@ -192,7 +239,8 @@ function detectRust(project) {
     lint: "cargo clippy -- -D warnings",
     build: "cargo build",
     lockfile: "Cargo.lock",
-    languageRules: "no unwrap in library code without a comment; explicit error types",
+    languageRules:
+      "no unwrap in library code without a comment; explicit error types",
   };
 }
 
@@ -206,12 +254,17 @@ function detectMaven(project) {
     lint: null,
     build: "mvn package",
     lockfile: "-",
-    languageRules: "follow the project's existing package and naming conventions",
+    languageRules:
+      "follow the project's existing package and naming conventions",
   };
 }
 
 function detectGradle(project) {
-  if (!has(join(project, "build.gradle")) && !has(join(project, "build.gradle.kts"))) return {};
+  if (
+    !has(join(project, "build.gradle")) &&
+    !has(join(project, "build.gradle.kts"))
+  )
+    return {};
   return {
     stack: "Java/Kotlin + Gradle",
     language: has(join(project, "build.gradle.kts")) ? "Kotlin" : "Java",
@@ -220,7 +273,8 @@ function detectGradle(project) {
     lint: null,
     build: "./gradlew build",
     lockfile: "gradle.lockfile",
-    languageRules: "follow the project's existing package and naming conventions",
+    languageRules:
+      "follow the project's existing package and naming conventions",
   };
 }
 
@@ -270,7 +324,8 @@ function detect(project) {
   const merged = {};
   for (const piece of pieces) {
     for (const [key, value] of Object.entries(piece)) {
-      if (merged[key] === undefined || merged[key] === null) merged[key] = value;
+      if (merged[key] === undefined || merged[key] === null)
+        merged[key] = value;
     }
   }
   return merged;
@@ -295,7 +350,13 @@ function findPlaceholders(project) {
     const file = join(project, rel);
     const body = text(file);
     if (!body) {
-      if (rel === "AGENTS.md") found.push({ file: rel, line: 0, token: "<AGENTS.md missing>", text: "" });
+      if (rel === "AGENTS.md")
+        found.push({
+          file: rel,
+          line: 0,
+          token: "<AGENTS.md missing>",
+          text: "",
+        });
       continue;
     }
     body.split(/\r?\n/).forEach((line, index) => {
@@ -316,14 +377,25 @@ function behaviorDocs(project) {
   if (!has(dir)) return { missing: !has(dir), stale: [], invalid: [] };
   const stale = [];
   const invalid = [];
-  for (const name of readdirSync(dir).filter((entry) => entry.endsWith(".md"))) {
+  for (const name of readdirSync(dir).filter((entry) =>
+    entry.endsWith(".md"),
+  )) {
     const file = join(dir, name);
     const body = text(file);
-    const verified = /^last_verified:\s*(\d{4}-\d{2}-\d{2})\s*$/m.exec(body)?.[1];
-    const sources = /^source_files:\s*(.+)$/m.exec(body)?.[1]
-      ?.split(",").map((entry) => entry.trim()).filter(Boolean) ?? [];
+    const verified = /^last_verified:\s*(\d{4}-\d{2}-\d{2})\s*$/m.exec(
+      body,
+    )?.[1];
+    const sources =
+      /^source_files:\s*(.+)$/m
+        .exec(body)?.[1]
+        ?.split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean) ?? [];
     if (!verified) {
-      invalid.push({ file: relative(project, file), reason: "missing last_verified: YYYY-MM-DD" });
+      invalid.push({
+        file: relative(project, file),
+        reason: "missing last_verified: YYYY-MM-DD",
+      });
       continue;
     }
     const verifiedAt = Date.parse(`${verified}T23:59:59Z`);
@@ -336,10 +408,46 @@ function behaviorDocs(project) {
       } catch {
         continue;
       }
-      if (mtime > verifiedAt) stale.push({ file: relative(project, file), source, last_verified: verified });
+      if (mtime > verifiedAt)
+        stale.push({
+          file: relative(project, file),
+          source,
+          last_verified: verified,
+        });
     }
   }
   return { missing: false, stale, invalid };
+}
+
+/**
+ * Open deferrals: every `- [~]` acceptance criterion across all plans.
+ *
+ * Why: a deferral is a promise made with a reason, and without a register it
+ * dies with the plan that wrote it. Grepping the plans directory keeps the
+ * ledger in the files themselves — no separate store to drift, and no model
+ * context spent on it unless someone passes the flag.
+ */
+function deferrals(project) {
+  const dir = join(project, ".opencode", "plans");
+  const found = [];
+  if (!has(dir)) return found;
+  for (const name of readdirSync(dir)
+    .filter((entry) => entry.endsWith(".md"))
+    .sort()
+    .reverse()) {
+    const file = relative(project, join(dir, name));
+    text(join(dir, name))
+      .split(/\r?\n/)
+      .forEach((line, index) => {
+        if (!/^- \[~\]/.test(line)) return;
+        found.push({
+          file,
+          line: index + 1,
+          text: line.replace(/^-\s*\[~\]\s*/, "").trim(),
+        });
+      });
+  }
+  return found;
 }
 
 /**
@@ -358,8 +466,20 @@ function behaviorDocs(project) {
 function skillDrift(project) {
   const drift = [];
   const packageFile = join(project, "package.json");
-  const stackFile = join(project, ".opencode", "skills", "mro-project-stack", "SKILL.md");
-  const dataFile = join(project, ".opencode", "skills", "mro-data-model", "SKILL.md");
+  const stackFile = join(
+    project,
+    ".opencode",
+    "skills",
+    "mro-project-stack",
+    "SKILL.md",
+  );
+  const dataFile = join(
+    project,
+    ".opencode",
+    "skills",
+    "mro-data-model",
+    "SKILL.md",
+  );
 
   const manifest = text(packageFile);
   const stack = text(stackFile);
@@ -370,16 +490,23 @@ function skillDrift(project) {
     } catch {
       parsed = null;
     }
-    const dependencies = { ...(parsed?.dependencies ?? {}), ...(parsed?.devDependencies ?? {}) };
+    const dependencies = {
+      ...(parsed?.dependencies ?? {}),
+      ...(parsed?.devDependencies ?? {}),
+    };
     for (const [name, version] of Object.entries(dependencies)) {
-      if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) continue;
+      if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version))
+        continue;
       // Scoped names would reduce to a generic word ("client", "core"), which
       // matches prose all over a skill and reports false drift. Best-effort means
       // false negatives, never false alarms.
       if (name.startsWith("@")) continue;
       const base = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       if (base.length < 3) continue;
-      const match = new RegExp(`\\b${base}[.\\w-]*\\s+(\\d+\\.\\d+\\.\\d+)`, "i").exec(stack);
+      const match = new RegExp(
+        `\\b${base}[.\\w-]*\\s+(\\d+\\.\\d+\\.\\d+)`,
+        "i",
+      ).exec(stack);
       if (match && match[1] !== version) {
         drift.push({
           file: ".opencode/skills/mro-project-stack/SKILL.md",
@@ -412,13 +539,21 @@ function skillDrift(project) {
 function gapsFor(project, detected, profile, placeholders, docs, drift) {
   const gaps = [];
   for (const placeholder of placeholders)
-    gaps.push(`${placeholder.file}:${placeholder.line} still has ${placeholder.token}`);
-  if (!profile) gaps.push(`${PROFILE_REL} is missing; db-status/check-file stay "not configured"`);
+    gaps.push(
+      `${placeholder.file}:${placeholder.line} still has ${placeholder.token}`,
+    );
+  if (!profile)
+    gaps.push(
+      `${PROFILE_REL} is missing; db-status/check-file stay "not configured"`,
+    );
   const effective = { ...detected, ...(profile ?? {}) };
-  if (!effective.test || effective.test === "-") gaps.push("test command is unknown");
-  if (!effective.lockfile) gaps.push("lockfile is unknown (use `-` only if the project has none)");
+  if (!effective.test || effective.test === "-")
+    gaps.push("test command is unknown");
+  if (!effective.lockfile)
+    gaps.push("lockfile is unknown (use `-` only if the project has none)");
   if (docs.stale.length) {
-    for (const item of docs.stale) gaps.push(`${item.file} is older than ${item.source}`);
+    for (const item of docs.stale)
+      gaps.push(`${item.file} is older than ${item.source}`);
   }
   if (docs.invalid.length) {
     for (const item of docs.invalid) gaps.push(`${item.file}: ${item.reason}`);
@@ -431,12 +566,15 @@ function gapsFor(project, detected, profile, placeholders, docs, drift) {
   return gaps;
 }
 
-function report(project, { json, docs: checkDocs }) {
+function report(project, { json, docs: checkDocs, deferrals: checkDeferrals }) {
   const detected = detect(project);
   const profile = readProfile(project);
   const placeholders = findPlaceholders(project);
-  const docs = checkDocs ? behaviorDocs(project) : { missing: false, stale: [], invalid: [] };
+  const docs = checkDocs
+    ? behaviorDocs(project)
+    : { missing: false, stale: [], invalid: [] };
   const drift = skillDrift(project);
+  const openDeferrals = checkDeferrals ? deferrals(project) : null;
   const gaps = gapsFor(project, detected, profile, placeholders, docs, drift);
   const effective = { ...detected, ...(profile ?? {}) };
   const tools = {
@@ -457,6 +595,7 @@ function report(project, { json, docs: checkDocs }) {
     tools,
     docs,
     gaps,
+    ...(openDeferrals !== null ? { deferrals: openDeferrals } : {}),
   };
 
   if (json) {
@@ -467,15 +606,27 @@ function report(project, { json, docs: checkDocs }) {
   const lines = [`mro-doctor: ${project}`, ""];
   for (const key of Object.keys(PROFILE_LABELS)) {
     const value = effective[key];
-    lines.push(`  ${key.padEnd(13)} ${value === undefined || value === null ? "(unknown)" : value}`);
+    lines.push(
+      `  ${key.padEnd(13)} ${value === undefined || value === null ? "(unknown)" : value}`,
+    );
   }
   lines.push("");
-  lines.push(`  profile       ${profile ? PROFILE_REL : `${PROFILE_REL} (missing)`}`);
-  lines.push(`  db-status     ${tools["db-status"] ? "configured" : "not configured"}`);
-  lines.push(`  check-file    ${tools["check-file"] ? "configured" : "not configured"}`);
-  lines.push(`  skills        ${drift.length === 0 ? "match the repository" : `${drift.length} fact(s) out of date`}`);
+  lines.push(
+    `  profile       ${profile ? PROFILE_REL : `${PROFILE_REL} (missing)`}`,
+  );
+  lines.push(
+    `  db-status     ${tools["db-status"] ? "configured" : "not configured"}`,
+  );
+  lines.push(
+    `  check-file    ${tools["check-file"] ? "configured" : "not configured"}`,
+  );
+  lines.push(
+    `  skills        ${drift.length === 0 ? "match the repository" : `${drift.length} fact(s) out of date`}`,
+  );
   if (checkDocs) {
-    lines.push(`  behavior docs ${docs.missing ? "docs/behaviors/ missing" : `${docs.stale.length} stale, ${docs.invalid.length} invalid`}`);
+    lines.push(
+      `  behavior docs ${docs.missing ? "docs/behaviors/ missing" : `${docs.stale.length} stale, ${docs.invalid.length} invalid`}`,
+    );
   }
   lines.push("");
   if (gaps.length === 0) {
@@ -484,7 +635,16 @@ function report(project, { json, docs: checkDocs }) {
     lines.push(`GAPS (${gaps.length}):`);
     for (const gap of gaps) lines.push(`  - ${gap}`);
     lines.push("");
-    lines.push("Run with --init to confirm suggestions, or --write to accept them.");
+    lines.push(
+      "Run with --init to confirm suggestions, or --write to accept them.",
+    );
+  }
+  if (openDeferrals !== null) {
+    lines.push("");
+    lines.push(`OPEN DEFERRALS (${openDeferrals.length}):`);
+    if (openDeferrals.length === 0) lines.push("  none");
+    for (const item of openDeferrals)
+      lines.push(`  - ${item.file}:${item.line} ${item.text}`);
   }
   process.stdout.write(`${lines.join("\n")}\n`);
   return result;
@@ -520,7 +680,11 @@ function updateAgents(project, values) {
   let next = body;
   for (const [key, labels] of Object.entries(PROFILE_LABELS)) {
     let value = values[key];
-    if ((value === undefined || value === null) && ["typecheck", "lint", "migration"].includes(key)) value = "-";
+    if (
+      (value === undefined || value === null) &&
+      ["typecheck", "lint", "migration"].includes(key)
+    )
+      value = "-";
     if (value === undefined || value === null) continue;
     for (const label of labels) {
       const pattern = new RegExp(`^(- ${label}: ).*$`, "m");
@@ -557,6 +721,7 @@ async function init(project, values) {
 const argv = process.argv.slice(2);
 const json = argv.includes("--json");
 const checkDocs = argv.includes("--docs");
+const checkDeferrals = argv.includes("--deferrals");
 const wantWrite = argv.includes("--write") || argv.includes("--yes");
 const wantInit = argv.includes("--init");
 const rootIndex = argv.indexOf("--root");
@@ -578,5 +743,9 @@ if (wantInit) {
   );
 }
 
-const result = report(project, { json, docs: checkDocs });
+const result = report(project, {
+  json,
+  docs: checkDocs,
+  deferrals: checkDeferrals,
+});
 process.exit(result.ok ? 0 : 1);

@@ -432,6 +432,19 @@ behavior doc.
 Update the state file to `done`, append the final log line, and report the
 changelog path and the refreshed facts.
 
+Then distill the behavior, once: if any entry in the state file's
+`severity_history` has a non-zero CRITICAL or HIGH count, send the same
+bootstrap session the two extra words "lessons mode". It reads only the
+`### CRITICAL` and `### HIGH` sections of `.opencode/reviews/<slug>.md` and
+appends at most three one-line rules to the owning skill's `## Pitfalls`, or
+reports the finding as a question when no skill owns the area. A finding that
+was fixed and forgotten is a finding the next reviewer catches again; a
+bootstrap report of "no lessons" is a valid outcome and requires no follow-up.
+
+Update the state file to `done`, append the final log line, and report the
+changelog path, the refreshed facts, and any lessons written with their skill
+paths.
+
 ## State file
 
 `.opencode/plans/<slug>.orchestrator.json` is the durable source of truth; the

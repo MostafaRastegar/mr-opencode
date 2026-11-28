@@ -17,17 +17,17 @@ Copy them into a project by hand (see [Install](#install)).
 
 ## What's in here
 
-| Layer    | Files                                                                                  | Purpose                                         |
-| -------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Config   | `configs/opencode.jsonc`, `AGENTS.md`, `.gitignore`, `.githooks/pre-commit`            | governance, standards, secret scan              |
-| Agents   | `agents/{mro-orchestrator,mro-architect,mro-implementer,mro-reviewer,mro-test-runner,mro-bootstrap}.md` | role, model, and permission separation |
-| Skills   | `skills/{mro-project-stack,mro-data-model,mro-behavior-docs,mro-code-review-checklist}/SKILL.md`  | on-demand knowledge, no permanent context cost  |
-| Commands | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-debug,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points |
-| Plugins  | `plugins/{mro-protect-secrets,mro-test-feedback,mro-project-tools,mro-redact}/`                | secret blocking, failure feedback, custom tools, redaction |
-| Scripts  | `scripts/{mro-doctor,mro-model-check}.mjs`                                                | placeholder and drift detection, profile writer, model preflight |
-| Tests    | `tests/*.test.mjs` (in the mr-opencode repo; not copied by Install)                       | self-tests for the template's own tools         |
-| Memory   | `.opencode/plans/`, `.opencode/reviews/`, `docs/behaviors/`                            | plans, state, review reports, behavior docs     |
-| Deliverables | `README.md`, `CHANGELOG.md`                                                        | product usage guide and completed-work history  |
+| Layer        | Files                                                                                                                        | Purpose                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Config       | `configs/opencode.jsonc`, `AGENTS.md`, `.gitignore`, `.githooks/pre-commit`                                                  | governance, standards, secret scan                               |
+| Agents       | `agents/{mro-orchestrator,mro-architect,mro-implementer,mro-reviewer,mro-test-runner,mro-bootstrap}.md`                      | role, model, and permission separation                           |
+| Skills       | `skills/{mro-project-stack,mro-data-model,mro-behavior-docs,mro-code-review-checklist}/SKILL.md`                             | on-demand knowledge, no permanent context cost                   |
+| Commands     | `commands/{mro-orchestrate,mro-plan-feature,mro-run-review,mro-fix-tests,mro-debug,mro-deliver,mro-status,mro-bootstrap}.md` | user-invoked entry points                                        |
+| Plugins      | `plugins/{mro-protect-secrets,mro-test-feedback,mro-project-tools,mro-redact}/`                                              | secret blocking, failure feedback, custom tools, redaction       |
+| Scripts      | `scripts/{mro-doctor,mro-model-check}.mjs`                                                                                   | placeholder and drift detection, profile writer, model preflight |
+| Tests        | `tests/*.test.mjs` (in the mr-opencode repo; not copied by Install)                                                          | self-tests for the template's own tools                          |
+| Memory       | `.opencode/plans/`, `.opencode/reviews/`, `docs/behaviors/`                                                                  | plans, state, review reports, behavior docs                      |
+| Deliverables | `README.md`, `CHANGELOG.md`                                                                                                  | product usage guide and completed-work history                   |
 
 `.opencode/plans/` and `.opencode/reviews/` are git-ignored scratch space.
 `docs/behaviors/` is a deliverable, created the first time the `mro-behavior-docs`
@@ -71,20 +71,20 @@ undetected field stays a `<...>` token and the check keeps failing.
 
 ## Fill-in checklist
 
-| Placeholder        | Where to fill it                          | Meaning                                   |
-| ------------------ | ----------------------------------------- | ----------------------------------------- |
-| `<STACK>`          | `AGENTS.md`, `mro-project-stack` skill        | framework and runtime, in one line        |
-| `<LANGUAGE>`       | `AGENTS.md`                               | primary language                          |
-| `<TEST_CMD>`       | `AGENTS.md`, agent `allow` rules          | the command that runs the suite           |
-| `<TYPECHECK_CMD>`  | `AGENTS.md`, `mro-project-tools` plugin       | static check; `-` if none                 |
-| `<LINT_CMD>`       | `AGENTS.md`, agent `allow` rules          | linter; `-` if none                       |
-| `<BUILD_CMD>`      | `AGENTS.md`, agent `allow` rules          | build/compile command                     |
-| `<MIGRATION_CMD>`  | `AGENTS.md`, `mro-project-tools` plugin       | migration status; `-` if none             |
-| `<LOCKFILE>`       | `AGENTS.md`                               | dependency lock file to keep committed    |
-| `<LANGUAGE_RULES>` | `AGENTS.md`                               | strictness, banned escape hatches, naming |
+| Placeholder        | Where to fill it                        | Meaning                                   |
+| ------------------ | --------------------------------------- | ----------------------------------------- |
+| `<STACK>`          | `AGENTS.md`, `mro-project-stack` skill  | framework and runtime, in one line        |
+| `<LANGUAGE>`       | `AGENTS.md`                             | primary language                          |
+| `<TEST_CMD>`       | `AGENTS.md`, agent `allow` rules        | the command that runs the suite           |
+| `<TYPECHECK_CMD>`  | `AGENTS.md`, `mro-project-tools` plugin | static check; `-` if none                 |
+| `<LINT_CMD>`       | `AGENTS.md`, agent `allow` rules        | linter; `-` if none                       |
+| `<BUILD_CMD>`      | `AGENTS.md`, agent `allow` rules        | build/compile command                     |
+| `<MIGRATION_CMD>`  | `AGENTS.md`, `mro-project-tools` plugin | migration status; `-` if none             |
+| `<LOCKFILE>`       | `AGENTS.md`                             | dependency lock file to keep committed    |
+| `<LANGUAGE_RULES>` | `AGENTS.md`                             | strictness, banned escape hatches, naming |
 | `<MODEL_ID>`       | `configs/opencode.jsonc`, `agents/*.md` | model id from `opencode models`           |
-| `<SCHEMA_PATH>`    | `mro-data-model` skill                        | the authoritative schema                  |
-| `<PROVIDER_ID>`    | `configs/opencode.jsonc`, `.env`          | web search provider, optional             |
+| `<SCHEMA_PATH>`    | `mro-data-model` skill                  | the authoritative schema                  |
+| `<PROVIDER_ID>`    | `configs/opencode.jsonc`, `.env`        | web search provider, optional             |
 
 Rule enforced in `AGENTS.md`: while a `<...>` token remains, the agents stop and
 ask instead of guessing a command. `node .opencode/scripts/mro-doctor.mjs` is the
@@ -126,8 +126,19 @@ The plugin configuration is a file, not code:
 ```json
 // .opencode/mro-profile.json (written by `mro-doctor --init`)
 {
-  "typecheckRunner": { "cmd": "pnpm", "args": ["exec", "tsc", "--noEmit"], "extensions": [".ts"] },
-  "migrations": [{ "file": "prisma/schema.prisma", "label": "Prisma", "cmd": "pnpm", "args": ["exec", "prisma", "migrate", "status"] }]
+  "typecheckRunner": {
+    "cmd": "pnpm",
+    "args": ["exec", "tsc", "--noEmit"],
+    "extensions": [".ts"]
+  },
+  "migrations": [
+    {
+      "file": "prisma/schema.prisma",
+      "label": "Prisma",
+      "cmd": "pnpm",
+      "args": ["exec", "prisma", "migrate", "status"]
+    }
+  ]
 }
 ```
 
@@ -138,14 +149,14 @@ honest gap, not a silent guess.
 
 ## Agents
 
-| Agent             | Mode     | Model               | May write                 |
-| ----------------- | -------- | ------------------- | ------------------------- |
-| `mro-orchestrator`| primary  | `9router/deep`      | only `.opencode/plans/`   |
-| `mro-architect`   | all      | `9router/deep`      | only `.opencode/plans/`   |
-| `mro-implementer` | all      | `9router/deep`      | source code               |
-| `mro-reviewer`    | subagent | `9router/nemo`      | only `.opencode/reviews/` |
-| `mro-test-runner` | subagent | `9router/nemo`      | only `.opencode/reviews/` |
-| `mro-bootstrap`   | all      | `9router/deep`      | profile, skills, agent allow-lists, harness config |
+| Agent              | Mode     | Model          | May write                                          |
+| ------------------ | -------- | -------------- | -------------------------------------------------- |
+| `mro-orchestrator` | primary  | `9router/deep` | only `.opencode/plans/`                            |
+| `mro-architect`    | all      | `9router/deep` | only `.opencode/plans/`                            |
+| `mro-implementer`  | all      | `9router/deep` | source code                                        |
+| `mro-reviewer`     | subagent | `9router/nemo` | only `.opencode/reviews/`                          |
+| `mro-test-runner`  | subagent | `9router/nemo` | only `.opencode/reviews/`                          |
+| `mro-bootstrap`    | all      | `9router/deep` | profile, skills, agent allow-lists, harness config |
 
 `mode: all` means the Architect and Implementer can be selected as primary agents
 and launched as subagents by the Orchestrator. The Reviewer and Test Runner stay
@@ -184,11 +195,11 @@ approval:
 Every orchestrated run has one effort level, and the Orchestrator states it in one
 line before doing anything:
 
-| Level | Pipeline | Checks | Docs |
-| --- | --- | --- | --- |
-| `quick` | one Implementer dispatch; diagnosis → approval → fix | typecheck when types changed, plus the targeted test file | none |
-| `standard` | plan gate, implement, one review round | typecheck, lint, full suite, build | README when user-facing, behavior doc, changelog after approval |
-| `full` | plan gate, implement, review, fix loop | full gate plus the e2e command | same, plus the skill refresh |
+| Level      | Pipeline                                             | Checks                                                    | Docs                                                            |
+| ---------- | ---------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| `quick`    | one Implementer dispatch; diagnosis → approval → fix | typecheck when types changed, plus the targeted test file | none                                                            |
+| `standard` | plan gate, implement, one review round               | typecheck, lint, full suite, build                        | README when user-facing, behavior doc, changelog after approval |
+| `full`     | plan gate, implement, review, fix loop               | full gate plus the e2e command                            | same, plus the skill refresh                                    |
 
 `quick` is for a bug or a small fix: no plan file, no state or log file, no
 reviewer, no new tests, and no README/behavior-doc/changelog/skill refresh. It
@@ -264,7 +275,7 @@ use `small_model`; it is deprecated in V2.
 - `CHANGELOG.md` is written only after the human's final approval, by the
   Implementer, so completed work leaves a trace. The Orchestrator verifies the
   entry before marking the work done.
-- The Reviewer gets a different model *and* a blind brief: the diff, the acceptance
+- The Reviewer gets a different model _and_ a blind brief: the diff, the acceptance
   criteria, and `AGENTS.md`, not the plan's rationale. Each checklist item must
   return PASS/FAIL/N/A. `mro-test-runner` only executes the suite and writes its
   log. It also applies the two-gate rule: a `Stage UI (mock)` plan without
@@ -284,15 +295,15 @@ use `small_model`; it is deprecated in V2.
 
 ## Commands
 
-| Command                | Agent        | Purpose                                                              |
-| ---------------------- | ------------ | -------------------------------------------------------------------- |
+| Command                    | Agent        | Purpose                                                                          |
+| -------------------------- | ------------ | -------------------------------------------------------------------------------- |
 | `/mro-orchestrate <text>`  | orchestrator | plan, approve, implement, review, and test at the effort level the request needs |
-| `/mro-status`              | orchestrator | read the state file and report phase, remaining work, and blockers   |
-| `/mro-plan-feature <text>` | architect    | write a plan to `.opencode/plans/`                                   |
-| `/mro-run-review`          | reviewer     | review the diff, write `.opencode/reviews/current.md`                |
-| `/mro-fix-tests [cmd]`     | implementer  | run the suite and fix failures without weakening tests               |
-| `/mro-debug <bug>`         | implementer  | locate a bug, explain the cause, get approval, minimal fix, then manual check |
-| `/mro-deliver`             | implementer  | status + README + `<TEST_CMD>` + reviewer + changelog after approval |
+| `/mro-status`              | orchestrator | read the state file and report phase, remaining work, and blockers               |
+| `/mro-plan-feature <text>` | architect    | write a plan to `.opencode/plans/`                                               |
+| `/mro-run-review`          | reviewer     | review the diff, write `.opencode/reviews/current.md`                            |
+| `/mro-fix-tests [cmd]`     | implementer  | run the suite and fix failures without weakening tests                           |
+| `/mro-debug <bug>`         | implementer  | locate a bug, explain the cause, get approval, minimal fix, then manual check    |
+| `/mro-deliver`             | implementer  | status + README + `<TEST_CMD>` + reviewer + changelog after approval             |
 
 `/mro-orchestrate` is the one-shot entry point: it picks an effort level
 (`quick`, `standard`, or `full`; override with `quick:` as the first word), then at
@@ -369,6 +380,10 @@ prompt before the agent starts. Two limits matter:
 16. Orchestrator → Implementer: changelog-only handoff
 17. Orchestrator: verify CHANGELOG.md entry → `/mro-bootstrap` refresh → doctor
     exits 0 → mark done
+18. Orchestrator → mro-bootstrap: "refresh mode", plus "lessons mode" when the
+    review's severity history had a CRITICAL or HIGH
+19. Orchestrator: re-run `mro-doctor` to exit 0, report refreshed facts and
+    lessons, mark done
 ```
 
 The Orchestrator owns the review and test gates. It never edits source, README,
@@ -434,12 +449,12 @@ that state file and record the approval timestamps before review.
 
 Every completed feature leaves three durable records:
 
-| File | Written by | When | Purpose |
-| --- | --- | --- | --- |
-| `README.md` | Implementer | during implementation | install, run, config/env, usage, tests, limitations |
-| `docs/contracts/<feature>.md` | Architect + Implementer | only when `review_level: full` | interface signatures, invariants, edge cases, `verify:` commands; the reviewers approve |
-| `docs/behaviors/<feature>.md` | Implementer (`mro-behavior-docs`) | during implementation | per-feature behavior detail |
-| `CHANGELOG.md` | Implementer | only after final human approval | dated record of what changed, with test evidence and artifact paths |
+| File                          | Written by                        | When                            | Purpose                                                                                 |
+| ----------------------------- | --------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
+| `README.md`                   | Implementer                       | during implementation           | install, run, config/env, usage, tests, limitations                                     |
+| `docs/contracts/<feature>.md` | Architect + Implementer           | only when `review_level: full`  | interface signatures, invariants, edge cases, `verify:` commands; the reviewers approve |
+| `docs/behaviors/<feature>.md` | Implementer (`mro-behavior-docs`) | during implementation           | per-feature behavior detail                                                             |
+| `CHANGELOG.md`                | Implementer                       | only after final human approval | dated record of what changed, with test evidence and artifact paths                     |
 
 The Orchestrator cannot write any of them; it validates the README before review
 and the changelog entry before marking the work done. The changelog format is a
@@ -458,6 +473,35 @@ doc as a gap and the Reviewer as a HIGH finding. Refresh `last_verified` only af
 the checks were actually re-run against the current code — otherwise the date is a
 lie, which is worse than an obviously old doc.
 
+### Learning loop
+
+The project grows and the same mistake should cost once, not twice. Three
+mechanisms close that loop, all cheap by construction:
+
+- **Refresh mode** (`mro-bootstrap`) re-derives a recorded fact that drifted:
+  a version, a command, a model, an entity. It never writes prose.
+- **Lessons mode** (`mro-bootstrap`, after the changelog) turns a review's
+  CRITICAL/HIGH findings into at most three one-line rules under `## Pitfalls`
+  in the skill that owns the area, shaped
+  `- <symptom> — <file:line> — <rule that prevents it>.` A one-off coding slip is
+  dropped, and a finding with no owning skill is reported as a question rather
+  than a new file.
+- **Prior findings**: the Architect greps `.opencode/reviews/` for the area it
+  is about to plan, reads at most two matching files, and records only their
+  CRITICAL/HIGH headings in a `Prior findings:` line the Orchestrator hands
+  onward verbatim.
+
+Budget caps, deliberately hard: never `AGENTS.md`, never an agent role file,
+3 lines per run, 5 per skill, at most two prior review files. A lesson that does
+not fit one line is not a lesson. Prefer an assertion over a sentence: a rule
+that can live in `test/architecture.test.ts` or a `mro-doctor.mjs` check costs
+zero tokens on every run and cannot be ignored.
+
+`node .opencode/scripts/mro-doctor.mjs --deferrals` prints every open `- [~]`
+criterion across `.opencode/plans/*.md`, so a deferral stays visible instead of
+dying with the plan that made it. It never affects the exit code: a deferral is
+a decision, not a gap.
+
 ### Project skills
 
 Agents discover skills from `.opencode/skills/` (and the user's global skill
@@ -468,8 +512,8 @@ names in every subagent handoff, because subagents start with fresh context.
 
 ## Skills
 
-| Skill                   | Load when                                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------- |
+| Skill                       | Load when                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------- |
 | `mro-project-stack`         | before designing or implementing anything                                           |
 | `mro-data-model`            | the task touches queries, mutations, or schema                                      |
 | `mro-behavior-docs`         | when a feature's acceptance criteria are verified and it is time to record behavior |
@@ -491,11 +535,11 @@ contract contains:
 
 Review levels drive the Orchestrator's risk triage and backpressure:
 
-| Level | Criteria | Human review |
-| ----- | -------- | ------------ |
-| `minimal` | < 50 lines, no auth/db/new logic | None (automated only) |
-| `reviewed` | new logic, API change, or > 200 lines | Focused on risky parts |
-| `full` | auth, payments, migration, infra, contract change | Paired + real execution |
+| Level      | Criteria                                          | Human review            |
+| ---------- | ------------------------------------------------- | ----------------------- |
+| `minimal`  | < 50 lines, no auth/db/new logic                  | None (automated only)   |
+| `reviewed` | new logic, API change, or > 200 lines             | Focused on risky parts  |
+| `full`     | auth, payments, migration, infra, contract change | Paired + real execution |
 
 When 3+ features await human review, backpressure kicks in: no new
 `reviewed`/`full` feature starts until capacity frees up. See `REVIEW_POLICY.md`
@@ -517,21 +561,21 @@ inline whole schemas or file trees into agent prompts.
 
 ## Plugins and tools
 
-| Plugin            | File                                         | Behavior                                                                                                                                          |
-| ----------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugin                | File                                   | Behavior                                                                                                                                                                                                             |
+| --------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mro-protect-secrets` | `plugins/mro-protect-secrets/index.js` | blocks `write`/`edit`/`patch`/`shell`/`execute` input that matches a secret pattern (OpenAI-style `sk-`, GitHub, GitLab, AWS, Google, Slack, Stripe, npm, PyPI, private keys), including best-effort base64 decoding |
-| `mro-test-feedback`   | `plugins/mro-test-feedback/index.js`   | after a failing test, typecheck, or lint command, appends a "fix before reporting" reminder to the tool result                                    |
-| `mro-project-tools`   | `plugins/mro-project-tools/index.js`   | registers `db-status`, `check-file`, `check-acceptance`, `secret-audit`; reads `.opencode/mro-profile.json`                                      |
-| `mro-redact`          | `plugins/mro-redact/index.ts`          | replaces secrets with stable tokens before the model sees them and restores them in tool input and shell commands; vault survives restart          |
+| `mro-test-feedback`   | `plugins/mro-test-feedback/index.js`   | after a failing test, typecheck, or lint command, appends a "fix before reporting" reminder to the tool result                                                                                                       |
+| `mro-project-tools`   | `plugins/mro-project-tools/index.js`   | registers `db-status`, `check-file`, `check-acceptance`, `secret-audit`; reads `.opencode/mro-profile.json`                                                                                                          |
+| `mro-redact`          | `plugins/mro-redact/index.ts`          | replaces secrets with stable tokens before the model sees them and restores them in tool input and shell commands; vault survives restart                                                                            |
 
 Registered tools:
 
-| Tool               | Input      | What it does                                                                            |
-| ------------------ | ---------- | --------------------------------------------------------------------------------------- |
-| `db-status`        | none       | runs the configured migration-status command; no database is assumed                    |
-| `check-file`       | `file`     | runs the configured typecheck command and returns only diagnostics mentioning that file |
+| Tool               | Input      | What it does                                                                                                                      |
+| ------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `db-status`        | none       | runs the configured migration-status command; no database is assumed                                                              |
+| `check-file`       | `file`     | runs the configured typecheck command and returns only diagnostics mentioning that file                                           |
 | `check-acceptance` | `planFile` | reports `[ ]` / `[x]` / `[~]` items with their `verify:`/`evidence:`/`reason:` fields, and flags a confirmed box with no evidence |
-| `secret-audit`     | none       | scans the staged/unstaged diff and untracked files for secret patterns (base64 best-effort) |
+| `secret-audit`     | none       | scans the staged/unstaged diff and untracked files for secret patterns (base64 best-effort)                                       |
 
 `.opencode/tools/` is a V1 convention and is not read by V2; tools come from a
 plugin. `db-status` runs a fixed read-only command and accepts no arguments, so
@@ -544,7 +588,7 @@ command and filters its output in JavaScript; the file path is data, never shell
 text. Filtering is textual, so a diagnostic that omits the path cannot be matched,
 and one that mentions the file only as context is still shown.
 
-`check-acceptance` cannot detect test coverage. It *can* tell the three states
+`check-acceptance` cannot detect test coverage. It _can_ tell the three states
 apart: `[ ]` pending, `[x]` confirmed (evidence required), `[~]` deferred (reason
 required). It never runs the `verify:` commands — that stays under the normal
 shell permission rules. Paths outside the project are refused.
@@ -620,24 +664,24 @@ Three safeguards live in `AGENTS.md`:
 
 `opencode.jsonc` is commented line by line. The short version:
 
-| Key                                  | Value               | Why                                                 | Change it                                                         |
-| ------------------------------------ | ------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| Key                                  | Value               | Why                                                 | Change it                                                          |
+| ------------------------------------ | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
 | `providers`                          | 9Router             | one local OpenAI-compatible gateway and two models  | add your own provider, or point `settings.baseURL` at your gateway |
-| `model`                              | `9router/deep`      | an unpinned session can silently use a paid model   | any id from `opencode models`                                     |
+| `model`                              | `9router/deep`      | an unpinned session can silently use a paid model   | any id from `opencode models`                                      |
 | `default_agent`                      | unset (`build`)     | no project-manager preflight on every question      | `mro-orchestrator` to make the gated workflow the default          |
-| `formatter`                          | `true`              | agent output matches project style                  | `false`, or configure per-language formatters                     |
-| `snapshots`                          | `true`              | `/undo` and `/redo` work without a commit           | `false` only if you always commit first                           |
-| `share`                              | `disabled`          | sessions contain code and can contain secrets       | `manual` to allow `/share`                                        |
-| `watcher.ignore`                     | empty               | the template assumes no build system                | add this project's heavy directories                              |
-| `tool_output`                        | 4000 lines / 100 KB | failing suites exceed the 2000/50 KB default        | lower both to save context                                        |
-| `permissions`                        | see below           | least privilege for every tool                      | see "Permission model"                                            |
-| `policies`                           | `sudo`, `git push`  | survives "Allow always" and agent-level allows      | add `shell:<command>` entries                                     |
-| `agents.*.model`                     | `<MODEL_ID>`        | title/summary/compaction do not need a strong model | replace with your models; `small_model` is deprecated             |
-| `compaction`                         | auto, 24k tail, 20% | keep API contracts and diffs readable               | raise/lower `keep.tokens`                                         |
-| `websearch`                          | unset               | the template assumes no provider                    | add `{ "provider": "<PROVIDER_ID>" }` and its key                 |
-| `experimental.todo`                  | `true`              | a todo list makes multi-step work visible           | remove if a release breaks it                                     |
-| `experimental.background_compaction` | `true`              | summary is written before it is needed              | remove if a release breaks it                                     |
-| `lsp`                                | commented out       | v2.3.0 accepts the key but starts nothing           | uncomment when a build supports LSP                               |
+| `formatter`                          | `true`              | agent output matches project style                  | `false`, or configure per-language formatters                      |
+| `snapshots`                          | `true`              | `/undo` and `/redo` work without a commit           | `false` only if you always commit first                            |
+| `share`                              | `disabled`          | sessions contain code and can contain secrets       | `manual` to allow `/share`                                         |
+| `watcher.ignore`                     | empty               | the template assumes no build system                | add this project's heavy directories                               |
+| `tool_output`                        | 4000 lines / 100 KB | failing suites exceed the 2000/50 KB default        | lower both to save context                                         |
+| `permissions`                        | see below           | least privilege for every tool                      | see "Permission model"                                             |
+| `policies`                           | `sudo`, `git push`  | survives "Allow always" and agent-level allows      | add `shell:<command>` entries                                      |
+| `agents.*.model`                     | `<MODEL_ID>`        | title/summary/compaction do not need a strong model | replace with your models; `small_model` is deprecated              |
+| `compaction`                         | auto, 24k tail, 20% | keep API contracts and diffs readable               | raise/lower `keep.tokens`                                          |
+| `websearch`                          | unset               | the template assumes no provider                    | add `{ "provider": "<PROVIDER_ID>" }` and its key                  |
+| `experimental.todo`                  | `true`              | a todo list makes multi-step work visible           | remove if a release breaks it                                      |
+| `experimental.background_compaction` | `true`              | summary is written before it is needed              | remove if a release breaks it                                      |
+| `lsp`                                | commented out       | v2.3.0 accepts the key but starts nothing           | uncomment when a build supports LSP                                |
 
 ### Permission model
 
@@ -699,6 +743,7 @@ The behavioural checks need a filled profile, because nothing is pre-approved:
 
 ```bash
 node .opencode/scripts/mro-doctor.mjs          # exit 0 only when no placeholder/profile/drift gap remains
+node .opencode/scripts/mro-doctor.mjs --deferrals  # lists open `- [~]` criteria; exit code unchanged
 node .opencode/scripts/mro-doctor.mjs --json    # same report as machine-readable JSON
 node .opencode/scripts/mro-doctor.mjs --root /path/to/project  # check a project other than the cwd
 opencode run "/mro-bootstrap"                  # fill once; run again in refresh mode when the doctor reports drift
@@ -725,13 +770,13 @@ opencode run "write secret.txt with sk-proj-AAAABBBBCCCCDDDDEEEEFFFF"   # must b
 
 `mro-doctor` flags:
 
-| flag | meaning |
-| ---- | ------- |
-| `--init` | interactive fill-in: detect the facts, prompt, then write `AGENTS.md` and `.opencode/mro-profile.json` |
-| `--write` (or `--yes`) | same as `--init` but accept every suggestion without prompting |
-| `--docs` | also report behavior docs whose `source_files` are newer than `last_verified` |
-| `--json` | emit the whole report as JSON for scripting |
-| `--root <dir>` | run against `<dir>` instead of the current working directory |
+| flag                   | meaning                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `--init`               | interactive fill-in: detect the facts, prompt, then write `AGENTS.md` and `.opencode/mro-profile.json` |
+| `--write` (or `--yes`) | same as `--init` but accept every suggestion without prompting                                         |
+| `--docs`               | also report behavior docs whose `source_files` are newer than `last_verified`                          |
+| `--json`               | emit the whole report as JSON for scripting                                                            |
+| `--root <dir>`         | run against `<dir>` instead of the current working directory                                           |
 
 Exit codes: `0` no gaps, `1` at least one gap, `2` no `AGENTS.md` in the target
 directory.

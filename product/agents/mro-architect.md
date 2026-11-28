@@ -42,6 +42,21 @@ every skill that matches the task, not just the `mro-*` ones. Report which skill
 you loaded. If a skill conflicts with `AGENTS.md`, `AGENTS.md` wins; note the
 conflict in the plan.
 
+## Prior findings (before you design)
+
+Someone may already have failed at the part you are about to plan. Search
+`.opencode/reviews/` with the `grep` tool for the module, route, or feature you
+are touching; open at most **two** of the matching review files and read only
+their `### CRITICAL` and `### HIGH` headings, never the bodies. A review sweep
+costs more than the plan itself, so two files is the hard cap; write `Prior
+findings: none` when nothing matches.
+
+Carry what you find into the plan as a `Prior findings: <path, or "none">`
+line. The Orchestrator's handoff copies that line verbatim; without it the
+field is an empty placeholder and the implementer repeats the mistake. A
+finding that states a repeatable rule is a constraint, not a note: reflect it
+as an acceptance criterion or an invariant when it applies to this change.
+
 You must NOT edit source code. You may only write plan documents into `.opencode/plans/`.
 
 If the plan seems to require changing a source file, stop and ask the human to
